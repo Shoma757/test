@@ -16,22 +16,21 @@ def start_telegram():
 if __name__ == '__main__':
     print("🎯 Запуск обоих сервисов...")
     
-    # Запускаем Flask
+    # Сначала Flask
     flask_process = start_flask()
-    time.sleep(5)  # Ждем запуска Flask
+    time.sleep(3)  # Ждем запуска Flask
     
-    # Запускаем Telegram
+    # Потом Telegram
     telegram_process = start_telegram()
     
     print("✅ Оба сервиса запущены!")
-    print("📡 Flask доступен по порту:", os.environ.get('PORT', 5432))
-    print("🔍 Telegram мониторинг активен")
+    print("📡 Flask + Telegram работают вместе!")
     
     try:
-        # Ждем завершения процессов
+        # Ждем завершения
         flask_process.wait()
         telegram_process.wait()
     except KeyboardInterrupt:
-        print("\n🛑 Остановка сервисов...")
+        print("\n🛑 Остановка...")
         flask_process.terminate()
         telegram_process.terminate()
