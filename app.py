@@ -1,7 +1,5 @@
 from flask import Flask, request, jsonify
 import os
-import requests
-import time
 
 app = Flask(__name__)
 
@@ -11,7 +9,7 @@ leads_found = 0
 def home():
     return jsonify({
         "status": "OK", 
-        "message": "Flask Server is running!",
+        "message": "Server is running!",
         "leads_found": leads_found
     })
 
@@ -34,6 +32,7 @@ def health():
     return jsonify({"status": "healthy"})
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5432))
-    print(f"🚀 Flask Server starting on port {port}")
+    # Railway устанавливает PORT автоматически
+    port = int(os.environ.get('PORT', 8080))
+    print(f"🚀 Server starting on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
