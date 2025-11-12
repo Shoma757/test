@@ -1,10 +1,9 @@
 import asyncio
 import aiohttp
 import time
-import requests
+import os  # ← ДОБАВЬТЕ ЭТУ СТРОКУ
 from telethon import TelegramClient
 
-# Ваши данные
 API_ID = 14535587
 API_HASH = '007b2bc4ed88c84167257c4a57dd3e75'
 PHONE = '+77762292659'
@@ -40,40 +39,36 @@ class TelegramMonitor:
             return False
 
     async def start_monitoring(self):
-        """Упрощенный мониторинг для теста"""
+        """Упрощенный мониторинг"""
         print("🚀 Запуск Telegram мониторинга...")
         
         try:
             self.client = TelegramClient('session', self.api_id, self.api_hash)
             
-            # Если есть session файл - используем его
             if os.path.exists('session.session'):
                 await self.client.start()
                 me = await self.client.get_me()
                 print(f"✅ Авторизован как: {me.first_name}")
             else:
                 print("❌ Файл session.session не найден")
-                print("📱 Запускаем авторизацию...")
-                await self.client.start(phone=self.phone)
+                return
             
             self.is_running = True
             
-            # Имитируем мониторинг
+            # Имитация мониторинга
             counter = 0
             while self.is_running:
                 counter += 1
                 print(f"🔍 Проверка Telegram #{counter}")
                 
-                # Имитируем найденный лид
                 lead_data = {
                     "source": "telegram",
                     "text": f"Тестовое сообщение #{counter}",
-                    "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
-                    "keywords": ["допуск для рабочих"]
+                    "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')
                 }
                 
                 await self.send_to_webhook(lead_data)
-                await asyncio.sleep(30)  # Проверка каждые 30 секунд
+                await asyncio.sleep(30)
                 
         except Exception as e:
             print(f"💥 Ошибка Telegram: {e}")
