@@ -111,7 +111,103 @@ class TelegramMonitor:
             else:
                 group_id = getattr(group, 'id', None)
                 if group_id:
-                    if str(group_id).startftime('%Y-%m-%d %H:%M:%S'),
+                    if str(group_id).startswith('-100'):
+                        channel_id = str(group_id)[4:]
+                    else:
+                        channel_id = str(group_id).replace('-', '')
+                    return f"https://t.me/c/{channel_id}/{message_id}"
+        except Exception as e:
+            print(f"⚠️ Не удалось сформировать ссылку: {e}")
+        return "Недоступно"
+
+    def get_user_info(self, msg):
+        """Извлекает информацию о пользователе"""
+        try:
+            sender = msg.sender
+            if sender:
+                username = getattr(sender, 'username', None)
+                first_name = getattr(sender, 'first_name', '')
+                last_name = getattr(sender, 'last_name', '')
+                user_id = getattr(sender, 'id', None)
+                
+                full_name = f"{first_name} {last_name}".strip()
+                
+                return {
+                    "username": f"@{username}" if username else None,
+                    "user_id": user_id,
+                    "full_name": full_name if full_name else None
+                }
+        except Exception as e:
+            print(f"⚠️ Ошибка получения информации о пользователе: {e}")
+        
+        return {"username": None, "user_id": None, "full_name": None}
+
+    async def start_monitoring(self):
+        """Запускает мониторинг Telegram"""
+        print("🚀 === ЗАПУСК ТЕЛЕГРАМ МОНИТОРИНГА ===")
+        
+        try:
+            self.client = TelegramClient('session', self.api_id, self.api_hash)
+            await self.client.start(phone=self.phone)
+            
+            me = await self.client.get_me()
+            print(f"✅ Авторизован как: {me.first_name} (@{me.username})")
+            
+            # Загружаем группы из CSV
+            raw_groups = self.load_groups_from_csv()
+            groups = []
+            
+            for link in raw_groups:
+                cleaned = self.clean_group_link(link)
+                if cleaned and cleaned not in groups:
+                    groups.append(cleaned)
+            
+            print(f"✅ Обработано групп: {len(groups)}")
+            
+            # Ключевые слова
+            keywords = [
+                "получить допуск для рабочих", "рабочий допуск на виллу", "пасс для рабочих", 
+                "пропуск для рабочих", "разрешение на работы", "допуск для рабочих"
+            ]
+            
+            print(f"✅ Ключевых слов: {len(keywords)}")
+            print("🔍 Начинаем мониторинг...")
+            
+            total_cycles = 0
+            self.is_running = True
+            
+            while self.is_running:
+                total_cycles += 1
+                print(f"🔄 ЦИКЛ {total_cycles} - {time.strftime('%H:%M:%S')}")
+                print(f"📈 Всего лидов: {self.total_leads_found}")
+                
+                for group_link in groups:
+                    try:
+                        group = await self.safe_get_entity(group_link)
+                        if not group:
+                            continue
+                            
+                        group_name = getattr(group, 'title', str(group_link))
+                        messages = await self.client.get_messages(group, limit=3)
+                        
+                        for msg in messages:
+                            if msg.text:
+                                message_id = f"{getattr(group, 'id', 'unknown')}_{msg.id}"
+                                
+                                if message_id not in self.processed_messages:
+                                    text = msg.text.lower()
+                                    found_keywords = [kw for kw in keywords if kw in text]
+                                    
+                                    if found_keywords:
+                                        print(f"🎯 НАЙДЕНО в '{group_name}': {found_keywords[0]}")
+                                        
+                                        user_info = self.get_user_info(msg)
+                                        message_url = self.get_message_url(group, msg.id, group_link)
+                                        message_time = msg.date.strftime('%Y-%m-%d %H:%M:%S') if msg.date else "Неизвестно"
+                                        
+                                        lead_data = {
+                                            "source": "telegram_monitor",
+                                            "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
                                             "message_text": msg.text[:500],
                                             "keywords": found_keywords,
                                             "group": group_name,
