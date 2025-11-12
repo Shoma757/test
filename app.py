@@ -14,7 +14,6 @@ app = Flask(__name__)
 # Глобальные переменные
 monitor_thread = None
 is_monitoring = False
-telegram_client = None
 
 # ВАШИ ДАННЫЕ TELEGRAM
 API_ID = 14535587
@@ -130,12 +129,10 @@ class TelegramMonitor:
 
     async def start_monitoring(self):
         """Запускает мониторинг Telegram"""
-        global is_monitoring
+        print("=== ТЕЛЕГРАМ МОНИТОРИНГ ДОПУСКОВ ===")
+        print("Подключаемся к Telegram...")
         
         try:
-            print("=== ТЕЛЕГРАМ МОНИТОРИНГ ДОПУСКОВ ===")
-            print("Подключаемся к Telegram...")
-            
             self.client = TelegramClient('session', self.api_id, self.api_hash)
             await self.client.start(phone=self.phone)
             
@@ -280,9 +277,12 @@ monitor = TelegramMonitor()
 
 def run_async_monitor():
     """Запускает асинхронный мониторинг в отдельном потоке"""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(monitor.start_monitoring())
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(monitor.start_monitoring())
+    except Exception as e:
+        print(f"💥 Ошибка в потоке мониторинга: {e}")
 
 # Flask роуты
 @app.route('/')
@@ -329,6 +329,7 @@ def start_monitor():
     monitor_thread.start()
     is_monitoring = True
     
+    print("🚀 Запуск мониторинга в отдельном потоке...")
     return jsonify({"status": "started", "message": "Мониторинг запущен"})
 
 @app.route('/stop-monitor', methods=['POST'])
@@ -350,6 +351,6 @@ def status():
     })
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8000))
+    port = 5432  # Ваш порт 5432
     print(f"🚀 Server starting on port {port}")
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=False)
