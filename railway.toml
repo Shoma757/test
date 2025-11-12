@@ -1,2 +1,9 @@
+[build]
+builder = "NIXPACKS"
+
 [deploy]
 startCommand = "python app.py"
+
+[[services]]
+name = "web"
+port = 8080
