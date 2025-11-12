@@ -9,7 +9,7 @@ leads_found = 0
 def home():
     return jsonify({
         "status": "OK", 
-        "message": "Server is running!",
+        "message": "Server is running on port 5432!",
         "leads_found": leads_found
     })
 
@@ -32,8 +32,8 @@ def health():
     return jsonify({"status": "healthy"})
 
 if __name__ == '__main__':
-    # ИСПРАВЬТЕ ПОРТ НА 5432!
-    port = int(os.environ.get('PORT', 5432))
+    # ПРИНУДИТЕЛЬНО порт 5432
+    port = 5432
     print(f"🚀 Server starting on port {port}")
     
     app.run(
