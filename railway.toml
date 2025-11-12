@@ -2,8 +2,8 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "python app.py"
+startCommand = "gunicorn --bind 0.0.0.0:$PORT app:app"
 
 [[services]]
 name = "web"
-port = 8080
+port = 5432
