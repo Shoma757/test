@@ -42,13 +42,13 @@ class TelegramMonitor:
                     timeout=10
                 ) as response:
                     if response.status == 200:
-                        print(f"✅ Лид отправлен в webhook")
+                        print("Лид отправлен в webhook")
                         return True
                     else:
-                        print(f"❌ Ошибка отправки: {response.status}")
+                        print(f"Ошибка отправки: {response.status}")
                         return False
         except Exception as e:
-            print(f"❌ Ошибка webhook: {e}")
+            print(f"Ошибка webhook: {e}")
             return False
 
     def clean_group_link(self, link):
@@ -85,7 +85,7 @@ class TelegramMonitor:
         try:
             return await self.client.get_entity(identifier)
         except Exception as e:
-            print(f"⚠️ Не удалось получить группу {identifier}: {e}")
+            print(f"Не удалось получить группу {identifier}: {e}")
             return None
 
     def get_message_url(self, group, message_id, group_link):
@@ -102,7 +102,7 @@ class TelegramMonitor:
                         channel_id = str(group_id).replace('-', '')
                     return f"https://t.me/c/{channel_id}/{message_id}"
         except Exception as e:
-            print(f"⚠️ Не удалось сформировать ссылку: {e}")
+            print(f"Не удалось сформировать ссылку: {e}")
         return "Недоступно"
 
     def get_user_info(self, msg):
@@ -123,7 +123,7 @@ class TelegramMonitor:
                     "full_name": full_name if full_name else None
                 }
         except Exception as e:
-            print(f"⚠️ Ошибка получения информации о пользователе: {e}")
+            print(f"Ошибка получения информации о пользователе: {e}")
         
         return {"username": None, "user_id": None, "full_name": None}
 
@@ -137,8 +137,8 @@ class TelegramMonitor:
             await self.client.start(phone=self.phone)
             
             me = await self.client.get_me()
-            print(f"✅ Авторизован как: {me.first_name} (@{me.username})")
-            print("🔄 Загружаем группы из Excel...")
+            print(f"Авторизован как: {me.first_name} (@{me.username})")
+            print("Загружаем группы из Excel...")
             
             # Загружаем группы
             try:
@@ -160,10 +160,10 @@ class TelegramMonitor:
                     if cleaned and cleaned not in groups:
                         groups.append(cleaned)
                 
-                print(f"📊 Загружено групп: {len(groups)}")
+                print(f"Загружено групп: {len(groups)}")
                 
             except Exception as e:
-                print(f"❌ Ошибка загрузки Excel: {e}")
+                print(f"Ошибка загрузки Excel: {e}")
                 groups = []
             
             # Ключевые слова
@@ -179,8 +179,8 @@ class TelegramMonitor:
                 "оформить пропуск", "получить пропуск", "нужен допуск"
             ]
             
-            print(f"🎯 Загружено ключевых слов: {len(keywords)}")
-            print("🔍 Начинаем мониторинг...")
+            print(f"Загружено ключевых слов: {len(keywords)}")
+            print("Начинаем мониторинг...")
             
             total_cycles = 0
             self.is_running = True
@@ -188,8 +188,8 @@ class TelegramMonitor:
             # Основной цикл мониторинга
             while self.is_running:
                 total_cycles += 1
-                print(f"\n🔍 ЦИКЛ {total_cycles} - {time.strftime('%H:%M:%S')}")
-                print(f"📊 Всего лидов найдено: {self.total_leads_found}")
+                print(f"ЦИКЛ {total_cycles} - {time.strftime('%H:%M:%S')}")
+                print(f"Всего лидов найдено: {self.total_leads_found}")
                 
                 if groups:
                     for group_link in groups:
@@ -210,7 +210,7 @@ class TelegramMonitor:
                                         found_keywords = [kw for kw in keywords if kw in text]
                                         
                                         if found_keywords:
-                                            print(f"🎯 НАЙДЕНО в '{group_name}': {', '.join(found_keywords)}")
+                                            print(f"НАЙДЕНО в '{group_name}': {', '.join(found_keywords)}")
                                             
                                             user_info = self.get_user_info(msg)
                                             message_url = self.get_message_url(group, msg.id, group_link)
@@ -248,19 +248,19 @@ class TelegramMonitor:
                             await asyncio.sleep(10)
                             
                         except Exception as e:
-                            print(f"⚠️ Ошибка в группе {group_link}: {e}")
+                            print(f"Ошибка в группе {group_link}: {e}")
                             await asyncio.sleep(10)
                 
                 # Пауза между циклами
-                print("💤 Перерыв 5 минут до следующего цикла...")
-                for i in range(300):  # 5 минут
+                print("Перерыв 5 минут до следующего цикла...")
+                for i in range(300):
                     if not self.is_running:
                         break
                     await asyncio.sleep(1)
                     
         except Exception as e:
-            print(f"💥 Критическая ошибка: {e}")
-            print("🔄 Перезапуск через 1 минуту...")
+            print(f"Критическая ошибка: {e}")
+            print("Перезапуск через 1 минуту...")
             await asyncio.sleep(60)
             if self.is_running:
                 await self.start_monitoring()
@@ -270,7 +270,7 @@ class TelegramMonitor:
         self.is_running = False
         if self.client:
             await self.client.disconnect()
-        print("🛑 Мониторинг остановлен")
+        print("Мониторинг остановлен")
 
 # Создаем экземпляр монитора
 monitor = TelegramMonitor()
@@ -282,7 +282,7 @@ def run_async_monitor():
         asyncio.set_event_loop(loop)
         loop.run_until_complete(monitor.start_monitoring())
     except Exception as e:
-        print(f"💥 Ошибка в потоке мониторинга: {e}")
+        print(f"Ошибка в потоке мониторинга: {e}")
 
 # Flask роуты
 @app.route('/')
@@ -308,7 +308,7 @@ def webhook_parser():
         })
     
     data = request.get_json(silent=True) or {}
-    print(f"📨 Получены данные в webhook: {data}")
+    print(f"Получены данные в webhook: {data}")
     
     return jsonify({
         "status": "success",
@@ -329,7 +329,7 @@ def start_monitor():
     monitor_thread.start()
     is_monitoring = True
     
-    print("🚀 Запуск мониторинга в отдельном потоке...")
+    print("Запуск мониторинга в отдельном потоке...")
     return jsonify({"status": "started", "message": "Мониторинг запущен"})
 
 @app.route('/stop-monitor', methods=['POST'])
@@ -351,6 +351,6 @@ def status():
     })
 
 if __name__ == '__main__':
-    port = 5432  # Ваш порт 5432
-    print(f"🚀 Server starting on port {port}")
+    port = int(os.environ.get('PORT', 8000))
+    print(f"Server starting on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
