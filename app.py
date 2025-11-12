@@ -32,7 +32,13 @@ def health():
     return jsonify({"status": "healthy"})
 
 if __name__ == '__main__':
-    # Railway устанавливает PORT автоматически
     port = int(os.environ.get('PORT', 8080))
     print(f"🚀 Server starting on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=False)
+    
+    # Важные настройки для Railway
+    app.run(
+        host='0.0.0.0', 
+        port=port, 
+        debug=False,
+        threaded=True
+    )
