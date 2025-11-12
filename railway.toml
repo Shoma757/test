@@ -1,1 +1,2 @@
-python start_both.py
+[deploy]
+startCommand = "python start_both.py"
