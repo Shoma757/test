@@ -2,7 +2,6 @@ import asyncio
 import aiohttp
 import time
 import os
-import pandas as pd
 import re
 from telethon import TelegramClient
 
@@ -61,13 +60,17 @@ class TelegramMonitor:
             return False
 
     async def send_lead_notification(self, lead_data):
-        """Отправляет уведомление о найденном лиде тебе"""
+        """Отправляет уведомление о найденном лиде тебе с ПОЛНОЙ информацией"""
         try:
             message = f"🎯 НАЙДЕН ЛИД #{self.leads_found + 1}!\n\n"
-            message += f"📝 {lead_data['text'][:150]}...\n"
-            message += f"👤 {lead_data['user_name']}\n"
-            message += f"📊 {lead_data['group_name']}\n"
-            message += f"🔑 {', '.join(lead_data['keywords'])}"
+            message += f"📝 **Сообщение:** {lead_data['text']}\n\n"
+            message += f"👤 **Пользователь:** {lead_data['user_name']}\n"
+            message += f"🔗 **Username:** {lead_data.get('username', 'нет')}\n"
+            message += f"🆔 **User ID:** {lead_data['user_id']}\n"
+            message += f"📊 **Группа:** {lead_data['group_name']}\n"
+            message += f"🔗 **Ссылка:** {lead_data['message_url']}\n"
+            message += f"🕒 **Время:** {lead_data['message_time']}\n"
+            message += f"🔑 **Ключевые слова:** {', '.join(lead_data['keywords'])}"
             
             await self.send_telegram_reply(YOUR_USER_ID, message)
             print(f"✅ Уведомление отправлено тебе")
@@ -76,51 +79,37 @@ class TelegramMonitor:
             print(f"❌ Ошибка уведомления: {e}")
             return False
 
-    def load_groups_from_excel(self):
-        """Загружает группы из Excel файла bot1.xlsx"""
+    def load_groups_from_txt(self):
+        """Загружает группы из текстового файла"""
         groups = []
         try:
-            # Читаем Excel файл
-            df = pd.read_excel('bot1.xlsx')
-            print(f"✅ Загружен Excel файл с {len(df)} строками")
-            print(f"📊 Колонки: {list(df.columns)}")
+            with open('groups.txt', 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        groups.append(line)
             
-            # Ищем колонку с группами
-            group_column = None
-            for col in df.columns:
-                if any(keyword in col.lower() for keyword in ['group', 'link', 'url', 'username', 'id', 'telegram']):
-                    group_column = col
-                    break
-            
-            if not group_column:
-                group_column = df.columns[0]  # Берем первую колонку
+            if groups:
+                print(f"✅ Загружено групп из groups.txt: {len(groups)}")
+                return groups
+            else:
+                print("📝 Используем тестовые группы")
+                return ['@dubai_community', '@dubai_work', '@uae_jobs']
                 
-            print(f"🔍 Используем колонку: {group_column}")
-            
-            # Берем группы из найденной колонки
-            raw_groups = df[group_column].dropna().tolist()
-            
-            for link in raw_groups:
-                cleaned = self.clean_group_link(link)
-                if cleaned and cleaned not in groups:
-                    groups.append(cleaned)
-            
-            print(f"✅ Обработано групп из Excel: {len(groups)}")
-            print(f"📋 Группы: {groups}")
-            return groups
-            
+        except FileNotFoundError:
+            print("📝 Файл groups.txt не найден, используем тестовые группы")
+            return ['@dubai_community', '@dubai_work', '@uae_jobs']
         except Exception as e:
-            print(f"❌ Ошибка загрузки Excel: {e}")
-            return ['@dubai_community', '@dubai_work']  # Резервные группы
+            print(f"❌ Ошибка загрузки groups.txt: {e}")
+            return ['@dubai_community', '@dubai_work', '@uae_jobs']
 
     def clean_group_link(self, link):
-        """Очищает ссылку на группу из Excel"""
-        if not link or pd.isna(link):
+        """Очищает ссылку на группу"""
+        if not link:
             return None
         
         link = str(link).strip()
         
-        # Если это число (ID группы)
         if link.replace('-', '').isdigit():
             num_id = int(link)
             if num_id < 0 and abs(num_id) > 1000000000:
@@ -130,17 +119,14 @@ class TelegramMonitor:
             else:
                 return int(link)
         
-        # Если ссылка содержит /- или заканчивается цифрами
         if '/-' in link or re.search(r'/\d+$', link):
             link = link.split('/')[-2] if '/' in link else link
         
-        # Если это t.me ссылка
         if 't.me/' in link:
             username = link.split('t.me/')[-1].split('/')[0]
             if username:
                 return f"@{username}" if not username.startswith('@') else username
         
-        # Если уже начинается с @
         if link.startswith('@'):
             return link
         
@@ -153,6 +139,23 @@ class TelegramMonitor:
         except Exception as e:
             print(f"⚠️ Не удалось получить группу {identifier}: {e}")
             return None
+
+    def get_message_url(self, group, message_id, group_link):
+        """Формирует ссылку на сообщение"""
+        try:
+            if isinstance(group_link, str) and group_link.startswith('@'):
+                return f"https://t.me/{group_link[1:]}/{message_id}"
+            else:
+                group_id = getattr(group, 'id', None)
+                if group_id:
+                    if str(group_id).startswith('-100'):
+                        channel_id = str(group_id)[4:]
+                    else:
+                        channel_id = str(group_id).replace('-', '')
+                    return f"https://t.me/c/{channel_id}/{message_id}"
+        except Exception as e:
+            print(f"⚠️ Не удалось сформировать ссылку: {e}")
+        return "Недоступно"
 
     def get_user_info(self, msg):
         """Извлекает информацию о пользователе"""
@@ -167,14 +170,14 @@ class TelegramMonitor:
                 full_name = f"{first_name} {last_name}".strip()
                 
                 return {
-                    "username": f"@{username}" if username else None,
+                    "username": f"@{username}" if username else "нет",
                     "user_id": user_id,
                     "full_name": full_name if full_name else "Неизвестно"
                 }
         except Exception as e:
             print(f"⚠️ Ошибка получения информации о пользователе: {e}")
         
-        return {"username": None, "user_id": None, "full_name": "Неизвестно"}
+        return {"username": "нет", "user_id": None, "full_name": "Неизвестно"}
 
     async def start_real_monitoring(self):
         """НАСТОЯЩИЙ мониторинг Telegram групп"""
@@ -187,21 +190,18 @@ class TelegramMonitor:
             me = await self.client.get_me()
             print(f"✅ Авторизован как: {me.first_name}")
             
-            # Загружаем группы ИЗ EXCEL
-            groups = self.load_groups_from_excel()
+            # Загружаем группы из текстового файла
+            groups = self.load_groups_from_txt()
             
-            print(f"🔍 Мониторим {len(groups)} групп из Excel")
+            print(f"🔍 Мониторим {len(groups)} групп: {groups}")
             
             # Ключевые слова
             keywords = [
                 "получить допуск для рабочих", "рабочий допуск на виллу", "пасс для рабочих", 
                 "пасс для работ на квартире", "пасс для работ на вилле", "пропуск для рабочих",
                 "пропуск для рабочих на квартиру", "пропуск для рабочих на виллу", "разрешение на работы", 
-                "разрешение на работы от УК", "разрешение на работы от комьюнити менеджмента", 
-                "разрешение на работы от билдинга", "разрешение на работы от билдинг менеджмента",
                 "допуск для рабочих", "рабочий пропуск", "пропуск для ремонтников",
                 "разрешение на ремонт", "допуск на объект", "пропуск на виллу",
-                "пропуск в билдинг", "допуск в билдинг", "рабочий пасс",
                 "оформить пропуск", "получить пропуск", "нужен допуск"
             ]
             
@@ -239,6 +239,7 @@ class TelegramMonitor:
                                         
                                         user_info = self.get_user_info(msg)
                                         message_time = msg.date.strftime('%Y-%m-%d %H:%M:%S') if msg.date else "Неизвестно"
+                                        message_url = self.get_message_url(group, msg.id, group_link)
                                         
                                         lead_data = {
                                             "source": "telegram",
@@ -247,24 +248,25 @@ class TelegramMonitor:
                                             "keywords": found_keywords,
                                             "group_name": group_name,
                                             "user_name": user_info['full_name'],
+                                            "username": user_info['username'],
                                             "user_id": user_info['user_id'],
                                             "message_time": message_time,
-                                            "message_url": f"https://t.me/c/{str(getattr(group, 'id', '')).replace('-100', '')}/{msg.id}"
+                                            "message_url": message_url
                                         }
                                         
                                         # Отправляем лид в webhook
                                         webhook_success = await self.send_to_webhook(lead_data)
                                         
                                         if webhook_success:
-                                            # Отправляем уведомление тебе
+                                            # Отправляем уведомление тебе с полной информацией
                                             await self.send_lead_notification(lead_data)
                                             
-                                            # Отправляем ответ пользователю
-                                            if user_info['user_id']:
-                                                await self.send_telegram_reply(
-                                                    user_info['user_id'],
-                                                    "✅ Ваша заявка на допуск принята! С вами свяжутся в ближайшее время для оформления."
-                                                )
+                                            # ⚠️ УБРАЛ ОТВЕТ ПОЛЬЗОВАТЕЛЮ - больше не отвечаем
+                                            # if user_info['user_id'] and user_info['user_id'] != YOUR_USER_ID:
+                                            #     await self.send_telegram_reply(
+                                            #         user_info['user_id'],
+                                            #         "✅ Ваша заявка на допуск принята! С вами свяжутся в ближайшее время для оформления."
+                                            #     )
                                         
                                         self.processed_messages.add(message_id)
                                         await asyncio.sleep(2)
