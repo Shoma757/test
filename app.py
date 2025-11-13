@@ -18,7 +18,7 @@ def restart_application():
 def schedule_restarts():
     """Настраивает расписание перезапусков"""
     # Перезапуск каждый день в 00:00 по МСК (21:00 UTC предыдущего дня)
-    schedule.every().day.at("11:35").do(restart_application)  # 21:00 UTC = 00:00 МСК
+    schedule.every().day.at("11:37").do(restart_application)  # 21:00 UTC = 00:00 МСК
     
     print(" Планировщик запущен. Перезапуск каждый день в 00:00 МСК (21:00 UTC)")
     
@@ -104,5 +104,6 @@ if __name__ == '__main__':
     print(f" Server starting on port {port}")
     print(" Автоперезапуск каждый день в 00:00 МСК (21:00 UTC)")
     app.run(host='0.0.0.0', port=port, debug=False)
+
 
 
