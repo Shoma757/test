@@ -55,7 +55,6 @@ class TelegramMonitor:
             # Читаем Excel файл
             df = pd.read_excel('bot1.xlsx')
             print(f"Загружен Excel файл с {len(df)} строками")
-            print(f"Колонки: {list(df.columns)}")
             
             # Ищем колонку с группами
             group_column = None
@@ -65,7 +64,7 @@ class TelegramMonitor:
                     break
             
             if not group_column:
-                group_column = df.columns[0]  # Берем первую колонку
+                group_column = df.columns[0]
                 
             print(f"Используем колонку: {group_column}")
             
@@ -82,7 +81,7 @@ class TelegramMonitor:
             
         except Exception as e:
             print(f"Ошибка загрузки Excel: {e}")
-            return ['@dubai_community', '@dubai_work', '@uae_jobs']  # Резервные группы
+            return ['@dubai_community', '@dubai_work', '@uae_jobs']
 
     def clean_group_link(self, link):
         """Очищает ссылку на группу из Excel"""
@@ -180,60 +179,16 @@ class TelegramMonitor:
             
             print(f"Мониторим {len(groups)} групп из Excel")
             
-            # Ключевые слова (ТВОИ СЛОВА)
+            # Ключевые слова
             keywords = [
-                # Одиночные ключевые слова
-                "допуск",
-                "пропуск", 
-                "пасс",
-                "разрешение",
-                "ремонт",
-                "работы",
-                "рабочий",
-                "рабочие",
-                "строитель",
-                "строители",
-                "строительный",
-                "строительные",
-                "permit",
-                "work",
-                "access",
-                "pass",
-                "noc",
-                "minor",
-                "major",
-                "ук",
-                "управляющая",
-                "компания",
-                "менеджмент",
-                "билдинг",
-                "community",
-                "management",
-                "building",
-                "дубай",
-                "dubai",
-                "оаэ",
-                "uae",
-                "квартира",
-                "вилла",
-                "apartment",
-                "villa",
-                "таунхаус",
-                "пентхаус",
-                "офис",
-                "townhouse",
-                "penthouse",
-                "office",
-                "помощь",
-                "получение",
-                "оформление",
-                "сопровождение",
-                "документы",
-                "help",
-                "permission",
-                "approval",
-                "construction",
-                "ремонт"
+                "допуск", "пропуск", "пасс", "разрешение", "ремонт", "работы",
+                "рабочий", "рабочие", "строитель", "строители", "строительный", "строительные",
+                "permit", "work", "access", "pass", "noc", "minor", "major",
+                "ук", "управляющая", "компания", "менеджмент", "билдинг",
+                "community", "management", "building", "дубай", "dubai", "оаэ", "uae",
+                "квартира", "вилла", "apartment", "villa", "таунхаус", "пентхаус", "офис",
+                "townhouse", "penthouse", "office", "помощь", "получение", "оформление",
+                "сопровождение", "документы", "help", "permission", "approval", "construction"
             ]
             
             print(f"Ключевых слов: {len(keywords)}")
@@ -292,20 +247,20 @@ class TelegramMonitor:
                                         webhook_success = await self.send_to_webhook(lead_data)
                                         
                                         if webhook_success:
-                                            print(f"✅ Лид #{self.leads_found} успешно отправлен")
+                                            print(f"Лид #{self.leads_found} успешно отправлен")
                                         
                                         self.processed_messages.add(message_id)
                                         await asyncio.sleep(1)
                         
                         # Пауза 5 секунд между группами
-                        if i < len(groups) - 1:  # Не ждем после последней группы
+                        if i < len(groups) - 1:
                             print("Пауза 5 секунд...")
                             await asyncio.sleep(5)
                         
                         # Перерыв 5 минут после каждых 5 групп
                         if (i + 1) % 5 == 0 and i < len(groups) - 1:
                             print("Перерыв 5 минут после 5 групп...")
-                            for j in range(300):  # 300 секунд = 5 минут
+                            for j in range(300):
                                 if not self.is_running:
                                     break
                                 await asyncio.sleep(1)
@@ -315,7 +270,7 @@ class TelegramMonitor:
                         await asyncio.sleep(5)
                 
                 print("Большой перерыв 5 минут до следующего цикла...")
-                for i in range(300):  # 300 секунд = 5 минут
+                for i in range(300):
                     if not self.is_running:
                         break
                     await asyncio.sleep(1)
