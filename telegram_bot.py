@@ -26,7 +26,7 @@ class TelegramMonitor:
         """Отправляет лид в Flask webhook"""
         try:
             webhook_url = f"http://localhost:5432/webhook-test/Parser"
-            print(f"📤 Отправляю лид в webhook...")
+            print(f"Отправляю лид в webhook...")
             
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -38,15 +38,15 @@ class TelegramMonitor:
                     
                     if response.status == 200:
                         response_data = await response.json()
-                        print(f"✅ Webhook ответил: {response_data['message']}")
+                        print(f"Webhook ответил: {response_data['message']}")
                         self.leads_found += 1
                         return True
                     else:
-                        print(f"❌ Webhook ошибка: {response.status}")
+                        print(f"Webhook ошибка: {response.status}")
                         return False
                         
         except Exception as e:
-            print(f"❌ Ошибка подключения к webhook: {e}")
+            print(f"Ошибка подключения к webhook: {e}")
             return False
 
     async def send_telegram_reply(self, user_id, message):
@@ -54,30 +54,30 @@ class TelegramMonitor:
         try:
             user = await self.client.get_entity(user_id)
             await self.client.send_message(user, message, link_preview=False)
-            print(f"✅ Ответ отправлен пользователю {user_id}")
+            print(f"Ответ отправлен пользователю {user_id}")
             return True
         except Exception as e:
-            print(f"❌ Ошибка отправки в Telegram: {e}")
+            print(f"Ошибка отправки в Telegram: {e}")
             return False
 
     async def send_lead_notification(self, lead_data):
         """Отправляет уведомление о найденном лиде тебе с ПОЛНОЙ информацией"""
         try:
-            message = f"🎯 НАЙДЕН ЛИД #{self.leads_found + 1}!\n\n"
-            message += f"📝 **Сообщение:** {lead_data['text']}\n\n"
-            message += f"👤 **Пользователь:** {lead_data['user_name']}\n"
-            message += f"🔗 **Username:** {lead_data.get('username', 'нет')}\n"
-            message += f"🆔 **User ID:** {lead_data['user_id']}\n"
-            message += f"📊 **Группа:** {lead_data['group_name']}\n"
-            message += f"🔗 **Ссылка:** {lead_data['message_url']}\n"
-            message += f"🕒 **Время:** {lead_data['message_time']}\n"
-            message += f"🔑 **Ключевые слова:** {', '.join(lead_data['keywords'])}"
+            message = f"НАЙДЕН ЛИД #{self.leads_found + 1}!\n\n"
+            message += f"Сообщение: {lead_data['text']}\n\n"
+            message += f"Пользователь: {lead_data['user_name']}\n"
+            message += f"Username: {lead_data.get('username', 'нет')}\n"
+            message += f"User ID: {lead_data['user_id']}\n"
+            message += f"Группа: {lead_data['group_name']}\n"
+            message += f"Ссылка: {lead_data['message_url']}\n"
+            message += f"Время: {lead_data['message_time']}\n"
+            message += f"Ключевые слова: {', '.join(lead_data['keywords'])}"
             
             await self.send_telegram_reply(YOUR_USER_ID, message)
-            print(f"✅ Уведомление отправлено тебе")
+            print(f"Уведомление отправлено тебе")
             return True
         except Exception as e:
-            print(f"❌ Ошибка уведомления: {e}")
+            print(f"Ошибка уведомления: {e}")
             return False
 
     def load_groups_from_excel(self):
@@ -86,8 +86,8 @@ class TelegramMonitor:
         try:
             # Читаем Excel файл
             df = pd.read_excel('bot1.xlsx')
-            print(f"✅ Загружен Excel файл с {len(df)} строками")
-            print(f"📊 Колонки: {list(df.columns)}")
+            print(f"Загружен Excel файл с {len(df)} строками")
+            print(f"Колонки: {list(df.columns)}")
             
             # Ищем колонку с группами
             group_column = None
@@ -99,7 +99,7 @@ class TelegramMonitor:
             if not group_column:
                 group_column = df.columns[0]  # Берем первую колонку
                 
-            print(f"🔍 Используем колонку: {group_column}")
+            print(f"Используем колонку: {group_column}")
             
             # Берем группы из найденной колонки
             raw_groups = df[group_column].dropna().tolist()
@@ -109,11 +109,11 @@ class TelegramMonitor:
                 if cleaned and cleaned not in groups:
                     groups.append(cleaned)
             
-            print(f"✅ Обработано групп из Excel: {len(groups)}")
+            print(f"Обработано групп из Excel: {len(groups)}")
             return groups
             
         except Exception as e:
-            print(f"❌ Ошибка загрузки Excel: {e}")
+            print(f"Ошибка загрузки Excel: {e}")
             return ['@dubai_community', '@dubai_work', '@uae_jobs']  # Резервные группы
 
     def clean_group_link(self, link):
@@ -154,7 +154,7 @@ class TelegramMonitor:
         try:
             return await self.client.get_entity(identifier)
         except Exception as e:
-            print(f"⚠️ Не удалось получить группу {identifier}: {e}")
+            print(f"Не удалось получить группу {identifier}: {e}")
             return None
 
     def get_message_url(self, group, message_id, group_link):
@@ -171,7 +171,7 @@ class TelegramMonitor:
                         channel_id = str(group_id).replace('-', '')
                     return f"https://t.me/c/{channel_id}/{message_id}"
         except Exception as e:
-            print(f"⚠️ Не удалось сформировать ссылку: {e}")
+            print(f"Не удалось сформировать ссылку: {e}")
         return "Недоступно"
 
     def get_user_info(self, msg):
@@ -192,25 +192,25 @@ class TelegramMonitor:
                     "full_name": full_name if full_name else "Неизвестно"
                 }
         except Exception as e:
-            print(f"⚠️ Ошибка получения информации о пользователе: {e}")
+            print(f"Ошибка получения информации о пользователе: {e}")
         
         return {"username": "нет", "user_id": None, "full_name": "Неизвестно"}
 
     async def start_real_monitoring(self):
         """НАСТОЯЩИЙ мониторинг Telegram групп"""
-        print("🚀 ЗАПУСК НАСТОЯЩЕГО МОНИТОРИНГА TELEGRAM...")
+        print("ЗАПУСК НАСТОЯЩЕГО МОНИТОРИНГА TELEGRAM...")
         
         try:
             self.client = TelegramClient('session', self.api_id, self.api_hash)
             await self.client.start()
             
             me = await self.client.get_me()
-            print(f"✅ Авторизован как: {me.first_name}")
+            print(f"Авторизован как: {me.first_name}")
             
             # Загружаем группы ИЗ EXCEL
             groups = self.load_groups_from_excel()
             
-            print(f"🔍 Мониторим {len(groups)} групп из Excel")
+            print(f"Мониторим {len(groups)} групп из Excel")
             
             # Ключевые слова (ТВОИ СЛОВА)
             keywords = [
@@ -230,26 +230,26 @@ class TelegramMonitor:
                 "разрешение на работы от билдинг менеджмента"
             ]
             
-            print(f"✅ Ключевых слов: {len(keywords)}")
-            print("🔍 Начинаем настоящий мониторинг...")
+            print(f"Ключевых слов: {len(keywords)}")
+            print("Начинаем настоящий мониторинг...")
             
             self.is_running = True
             cycle_count = 0
             
             while self.is_running:
                 cycle_count += 1
-                print(f"🔄 ЦИКЛ {cycle_count} - {time.strftime('%H:%M:%S')} - Лидов: {self.leads_found}")
+                print(f"ЦИКЛ {cycle_count} - {time.strftime('%H:%M:%S')} - Лидов: {self.leads_found}")
                 
                 # Обрабатываем группы с паузами
                 for i, group_link in enumerate(groups):
                     try:
                         group = await self.safe_get_entity(group_link)
                         if not group:
-                            print(f"⚠️ Не удалось получить группу: {group_link}")
+                            print(f"Не удалось получить группу: {group_link}")
                             continue
                             
                         group_name = getattr(group, 'title', str(group_link))
-                        print(f"🔎 Проверяем группу ({i+1}/{len(groups)}): {group_name}")
+                        print(f"Проверяем группу ({i+1}/{len(groups)}): {group_name}")
                         
                         # Получаем последние сообщения
                         messages = await self.client.get_messages(group, limit=15)  # Увеличил лимит
@@ -263,7 +263,7 @@ class TelegramMonitor:
                                     found_keywords = [kw for kw in keywords if kw in text]
                                     
                                     if found_keywords:
-                                        print(f"🎯 НАЙДЕНО В '{group_name}': {found_keywords[0]}")
+                                        print(f"НАЙДЕНО В '{group_name}': {found_keywords[0]}")
                                         
                                         user_info = self.get_user_info(msg)
                                         message_time = msg.date.strftime('%Y-%m-%d %H:%M:%S') if msg.date else "Неизвестно"
@@ -294,47 +294,47 @@ class TelegramMonitor:
                         
                         # Пауза 5 секунд между группами
                         if i < len(groups) - 1:  # Не ждем после последней группы
-                            print("⏸️ Пауза 5 секунд...")
+                            print("Пауза 5 секунд...")
                             await asyncio.sleep(5)
                         
                         # Перерыв 5 минут после каждых 5 групп
                         if (i + 1) % 5 == 0 and i < len(groups) - 1:
-                            print("🔄 Перерыв 5 минут после 5 групп...")
+                            print("Перерыв 5 минут после 5 групп...")
                             for j in range(300):  # 300 секунд = 5 минут
                                 if not self.is_running:
                                     break
                                 await asyncio.sleep(1)
                         
                     except Exception as e:
-                        print(f"❌ Ошибка в группе {group_link}: {e}")
+                        print(f"Ошибка в группе {group_link}: {e}")
                         await asyncio.sleep(5)
                 
-                print("⏸️ Большой перерыв 5 минут до следующего цикла...")
+                print("Большой перерыв 5 минут до следующего цикла...")
                 for i in range(300):  # 300 секунд = 5 минут
                     if not self.is_running:
                         break
                     await asyncio.sleep(1)
                     
         except Exception as e:
-            print(f"💥 Ошибка мониторинга: {e}")
+            print(f"Ошибка мониторинга: {e}")
             await asyncio.sleep(30)
             if self.is_running:
                 await self.start_real_monitoring()
 
     async def start_monitoring(self):
         """Запускает мониторинг"""
-        print("🚀 Запуск Telegram мониторинга...")
+        print("Запуск Telegram мониторинга...")
         
         try:
             if os.path.exists('session.session'):
-                print("✅ Найден session файл, запускаем НАСТОЯЩИЙ мониторинг")
+                print("Найден session файл, запускаем НАСТОЯЩИЙ мониторинг")
                 await self.start_real_monitoring()
             else:
-                print("❌ Файл session.session не найден")
+                print("Файл session.session не найден")
                 return
             
         except Exception as e:
-            print(f"💥 Критическая ошибка: {e}")
+            print(f"Критическая ошибка: {e}")
             await asyncio.sleep(60)
             if self.is_running:
                 await self.start_monitoring()
@@ -344,6 +344,5 @@ async def main():
     await monitor.start_monitoring()
 
 if __name__ == '__main__':
-    print("🤖 Telegram Monitor starting...")
+    print("Telegram Monitor starting...")
     asyncio.run(main())
-
