@@ -2,7 +2,7 @@ name: Daily Auto-Restart at 14:53 MSK
 
 on:
   schedule:
-    - cron: '56 11 * * *'  # 11:53 UTC = 14:53 МСК
+    - cron: '53 11 * * *'  # 11:53 UTC = 14:53 МСК
   workflow_dispatch:       # Ручной запуск
 
 jobs:
@@ -12,16 +12,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           
       - name: Setup Git
         run: |
-          git config --local user.email "actions@github.com"
-          git config --local user.name "GitHub Actions"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           
       - name: Create restart commit
         run: |
-          # Добавляем все файлы (даже если нет изменений)
-          git add -A
-          git commit -m "🔄 Daily auto-restart at 14:53 MSK" --allow-empty
-          git push origin main
+          git commit --allow-empty -m "🔄 Daily auto-restart at 14:53 MSK"
+          git push
