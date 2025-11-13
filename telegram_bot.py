@@ -10,7 +10,6 @@ from telethon import TelegramClient
 API_ID = 21725084
 API_HASH = '08f630cd0e979c07b93527ea554fe7bc'
 PHONE = '+79160002004'
-YOUR_USER_ID = 995290094
 
 class TelegramMonitor:
     def __init__(self):
@@ -47,37 +46,6 @@ class TelegramMonitor:
                         
         except Exception as e:
             print(f"Ошибка подключения к webhook: {e}")
-            return False
-
-    async def send_telegram_reply(self, user_id, message):
-        """Отправляет сообщение пользователю в Telegram"""
-        try:
-            user = await self.client.get_entity(user_id)
-            await self.client.send_message(user, message, link_preview=False)
-            print(f"Ответ отправлен пользователю {user_id}")
-            return True
-        except Exception as e:
-            print(f"Ошибка отправки в Telegram: {e}")
-            return False
-
-    async def send_lead_notification(self, lead_data):
-        """Отправляет уведомление о найденном лиде тебе с ПОЛНОЙ информацией"""
-        try:
-            message = f"НАЙДЕН ЛИД #{self.leads_found + 1}!\n\n"
-            message += f"Сообщение: {lead_data['text']}\n\n"
-            message += f"Пользователь: {lead_data['user_name']}\n"
-            message += f"Username: {lead_data.get('username', 'нет')}\n"
-            message += f"User ID: {lead_data['user_id']}\n"
-            message += f"Группа: {lead_data['group_name']}\n"
-            message += f"Ссылка: {lead_data['message_url']}\n"
-            message += f"Время: {lead_data['message_time']}\n"
-            message += f"Ключевые слова: {', '.join(lead_data['keywords'])}"
-            
-            await self.send_telegram_reply(YOUR_USER_ID, message)
-            print(f"Уведомление отправлено тебе")
-            return True
-        except Exception as e:
-            print(f"Ошибка уведомления: {e}")
             return False
 
     def load_groups_from_excel(self):
@@ -286,8 +254,7 @@ class TelegramMonitor:
                                         webhook_success = await self.send_to_webhook(lead_data)
                                         
                                         if webhook_success:
-                                            # Отправляем уведомление тебе с полной информацией
-                                            await self.send_lead_notification(lead_data)
+                                            print(f"✅ Лид #{self.leads_found} успешно отправлен")
                                         
                                         self.processed_messages.add(message_id)
                                         await asyncio.sleep(1)
