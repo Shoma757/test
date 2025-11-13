@@ -9,7 +9,7 @@ leads_found = 0
 def home():
     return jsonify({
         "status": "OK", 
-        "message": "Flask Server is running!",
+        "message": "Flask + Telegram Monitor is running!",
         "leads_found": leads_found
     })
 
@@ -41,6 +41,6 @@ def health():
     return jsonify({"status": "healthy"})
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5432))
+    port = 5432
     print(f"Server starting on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
