@@ -182,59 +182,59 @@ class TelegramMonitor:
             
             # Ключевые слова (ТВОИ СЛОВА)
             keywords = [
-    # Одиночные ключевые слова
-    "допуск",
-    "пропуск", 
-    "пасс",
-    "разрешение",
-    "ремонт",
-    "работы",
-    "рабочий",
-    "рабочие",
-    "строитель",
-    "строители",
-    "строительный",
-    "строительные",
-    "permit",
-    "work",
-    "access",
-    "pass",
-    "noc",
-    "minor",
-    "major",
-    "ук",
-    "управляющая",
-    "компания",
-    "менеджмент",
-    "билдинг",
-    "community",
-    "management",
-    "building",
-    "дубай",
-    "dubai",
-    "оаэ",
-    "uae",
-    "квартира",
-    "вилла",
-    "apartment",
-    "villa",
-    "таунхаус",
-    "пентхаус",
-    "офис",
-    "townhouse",
-    "penthouse",
-    "office",
-    "помощь",
-    "получение",
-    "оформление",
-    "сопровождение",
-    "документы",
-    "help",
-    "permission",
-    "approval",
-    "construction",
-    "ремонт"
-]
+                # Одиночные ключевые слова
+                "допуск",
+                "пропуск", 
+                "пасс",
+                "разрешение",
+                "ремонт",
+                "работы",
+                "рабочий",
+                "рабочие",
+                "строитель",
+                "строители",
+                "строительный",
+                "строительные",
+                "permit",
+                "work",
+                "access",
+                "pass",
+                "noc",
+                "minor",
+                "major",
+                "ук",
+                "управляющая",
+                "компания",
+                "менеджмент",
+                "билдинг",
+                "community",
+                "management",
+                "building",
+                "дубай",
+                "dubai",
+                "оаэ",
+                "uae",
+                "квартира",
+                "вилла",
+                "apartment",
+                "villa",
+                "таунхаус",
+                "пентхаус",
+                "офис",
+                "townhouse",
+                "penthouse",
+                "office",
+                "помощь",
+                "получение",
+                "оформление",
+                "сопровождение",
+                "документы",
+                "help",
+                "permission",
+                "approval",
+                "construction",
+                "ремонт"
+            ]
             
             print(f"Ключевых слов: {len(keywords)}")
             print("Начинаем настоящий мониторинг...")
@@ -257,8 +257,8 @@ class TelegramMonitor:
                         group_name = getattr(group, 'title', str(group_link))
                         print(f"Проверяем группу ({i+1}/{len(groups)}): {group_name}")
                         
-                        # Получаем последние сообщения
-                        messages = await self.client.get_messages(group, limit=15)  # Увеличил лимит
+                        # Получаем последние 20 сообщений
+                        messages = await self.client.get_messages(group, limit=20)
                         
                         for msg in messages:
                             if msg.text:
