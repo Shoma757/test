@@ -3,6 +3,7 @@ import aiohttp
 import time
 import os
 import re
+import pandas as pd
 from telethon import TelegramClient
 
 # ТВОИ ДАННЫЕ TELEGRAM
@@ -79,37 +80,50 @@ class TelegramMonitor:
             print(f"❌ Ошибка уведомления: {e}")
             return False
 
-    def load_groups_from_txt(self):
-        """Загружает группы из текстового файла"""
+    def load_groups_from_excel(self):
+        """Загружает группы из Excel файла bot1.xlsx"""
         groups = []
         try:
-            with open('groups.txt', 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#'):
-                        groups.append(line)
+            # Читаем Excel файл
+            df = pd.read_excel('bot1.xlsx')
+            print(f"✅ Загружен Excel файл с {len(df)} строками")
+            print(f"📊 Колонки: {list(df.columns)}")
             
-            if groups:
-                print(f"✅ Загружено групп из groups.txt: {len(groups)}")
-                return groups
-            else:
-                print("📝 Используем тестовые группы")
-                return ['@dubai_community', '@dubai_work', '@uae_jobs']
+            # Ищем колонку с группами
+            group_column = None
+            for col in df.columns:
+                if any(keyword in col.lower() for keyword in ['group', 'link', 'url', 'username', 'id', 'telegram']):
+                    group_column = col
+                    break
+            
+            if not group_column:
+                group_column = df.columns[0]  # Берем первую колонку
                 
-        except FileNotFoundError:
-            print("📝 Файл groups.txt не найден, используем тестовые группы")
-            return ['@dubai_community', '@dubai_work', '@uae_jobs']
+            print(f"🔍 Используем колонку: {group_column}")
+            
+            # Берем группы из найденной колонки
+            raw_groups = df[group_column].dropna().tolist()
+            
+            for link in raw_groups:
+                cleaned = self.clean_group_link(link)
+                if cleaned and cleaned not in groups:
+                    groups.append(cleaned)
+            
+            print(f"✅ Обработано групп из Excel: {len(groups)}")
+            return groups
+            
         except Exception as e:
-            print(f"❌ Ошибка загрузки groups.txt: {e}")
-            return ['@dubai_community', '@dubai_work', '@uae_jobs']
+            print(f"❌ Ошибка загрузки Excel: {e}")
+            return ['@dubai_community', '@dubai_work', '@uae_jobs']  # Резервные группы
 
     def clean_group_link(self, link):
-        """Очищает ссылку на группу"""
-        if not link:
+        """Очищает ссылку на группу из Excel"""
+        if not link or pd.isna(link):
             return None
         
         link = str(link).strip()
         
+        # Если это число (ID группы)
         if link.replace('-', '').isdigit():
             num_id = int(link)
             if num_id < 0 and abs(num_id) > 1000000000:
@@ -119,14 +133,17 @@ class TelegramMonitor:
             else:
                 return int(link)
         
+        # Если ссылка содержит /- или заканчивается цифрами
         if '/-' in link or re.search(r'/\d+$', link):
             link = link.split('/')[-2] if '/' in link else link
         
+        # Если это t.me ссылка
         if 't.me/' in link:
             username = link.split('t.me/')[-1].split('/')[0]
             if username:
                 return f"@{username}" if not username.startswith('@') else username
         
+        # Если уже начинается с @
         if link.startswith('@'):
             return link
         
@@ -190,30 +207,41 @@ class TelegramMonitor:
             me = await self.client.get_me()
             print(f"✅ Авторизован как: {me.first_name}")
             
-            # Загружаем группы из текстового файла
-            groups = self.load_groups_from_txt()
+            # Загружаем группы ИЗ EXCEL
+            groups = self.load_groups_from_excel()
             
-            print(f"🔍 Мониторим {len(groups)} групп: {groups}")
+            print(f"🔍 Мониторим {len(groups)} групп из Excel")
             
-            # Ключевые слова
+            # Ключевые слова (ТВОИ СЛОВА)
             keywords = [
-                "получить допуск для рабочих", "рабочий допуск на виллу", "пасс для рабочих", 
-                "пасс для работ на квартире", "пасс для работ на вилле", "пропуск для рабочих",
-                "пропуск для рабочих на квартиру", "пропуск для рабочих на виллу", "разрешение на работы", 
-                "допуск для рабочих", "рабочий пропуск", "пропуск для ремонтников",
-                "разрешение на ремонт", "допуск на объект", "пропуск на виллу",
-                "оформить пропуск", "получить пропуск", "нужен допуск"
+                "получить допуск для рабочих",
+                "рабочий допуск на квартиру, напишите в телеграм @shoma757", 
+                "рабочий допуск на виллу",
+                "пасс для рабочих",
+                "пасс для работ на квартире",
+                "пасс для работ на вилле", 
+                "пропуск для рабочих",
+                "пропуск для рабочих на квартиру",
+                "пропуск для рабочих на виллу",
+                "разрешение на работы",
+                "разрешение на работы от УК",
+                "разрешение на работы от комьюнити менеджмента",
+                "разрешение на работы от билдинга", 
+                "разрешение на работы от билдинг менеджмента"
             ]
             
             print(f"✅ Ключевых слов: {len(keywords)}")
             print("🔍 Начинаем настоящий мониторинг...")
             
             self.is_running = True
+            cycle_count = 0
             
             while self.is_running:
-                print(f"🔄 Проверка групп - {time.strftime('%H:%M:%S')} - Лидов: {self.leads_found}")
+                cycle_count += 1
+                print(f"🔄 ЦИКЛ {cycle_count} - {time.strftime('%H:%M:%S')} - Лидов: {self.leads_found}")
                 
-                for group_link in groups:
+                # Обрабатываем группы с паузами
+                for i, group_link in enumerate(groups):
                     try:
                         group = await self.safe_get_entity(group_link)
                         if not group:
@@ -221,10 +249,10 @@ class TelegramMonitor:
                             continue
                             
                         group_name = getattr(group, 'title', str(group_link))
-                        print(f"🔎 Проверяем группу: {group_name}")
+                        print(f"🔎 Проверяем группу ({i+1}/{len(groups)}): {group_name}")
                         
                         # Получаем последние сообщения
-                        messages = await self.client.get_messages(group, limit=10)
+                        messages = await self.client.get_messages(group, limit=15)  # Увеличил лимит
                         
                         for msg in messages:
                             if msg.text:
@@ -260,25 +288,29 @@ class TelegramMonitor:
                                         if webhook_success:
                                             # Отправляем уведомление тебе с полной информацией
                                             await self.send_lead_notification(lead_data)
-                                            
-                                            # ⚠️ УБРАЛ ОТВЕТ ПОЛЬЗОВАТЕЛЮ - больше не отвечаем
-                                            # if user_info['user_id'] and user_info['user_id'] != YOUR_USER_ID:
-                                            #     await self.send_telegram_reply(
-                                            #         user_info['user_id'],
-                                            #         "✅ Ваша заявка на допуск принята! С вами свяжутся в ближайшее время для оформления."
-                                            #     )
                                         
                                         self.processed_messages.add(message_id)
-                                        await asyncio.sleep(2)
+                                        await asyncio.sleep(1)
                         
-                        await asyncio.sleep(3)
+                        # Пауза 5 секунд между группами
+                        if i < len(groups) - 1:  # Не ждем после последней группы
+                            print("⏸️ Пауза 5 секунд...")
+                            await asyncio.sleep(5)
+                        
+                        # Перерыв 5 минут после каждых 5 групп
+                        if (i + 1) % 5 == 0 and i < len(groups) - 1:
+                            print("🔄 Перерыв 5 минут после 5 групп...")
+                            for j in range(300):  # 300 секунд = 5 минут
+                                if not self.is_running:
+                                    break
+                                await asyncio.sleep(1)
                         
                     except Exception as e:
                         print(f"❌ Ошибка в группе {group_link}: {e}")
                         await asyncio.sleep(5)
                 
-                print("⏸️ Перерыв 60 секунд...")
-                for i in range(60):
+                print("⏸️ Большой перерыв 5 минут до следующего цикла...")
+                for i in range(300):  # 300 секунд = 5 минут
                     if not self.is_running:
                         break
                     await asyncio.sleep(1)
