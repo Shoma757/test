@@ -1,0 +1,23 @@
+name: Daily Auto-Restart at 00:00 MSK
+
+on:
+  schedule:
+    - cron: '0 21 * * *'  # 21:00 UTC = 00:00 МСК
+  workflow_dispatch:       # Ручной запуск
+
+jobs:
+  restart:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Git
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "GitHub Actions"
+          
+      - name: Create restart commit
+        run: |
+          git commit --allow-empty -m "🔄 Daily auto-restart at 00:00 MSK"
+          git push
