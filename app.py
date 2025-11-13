@@ -25,7 +25,7 @@ def webhook_parser():
         })
     
     data = request.get_json() or {}
-    print(f"✅ Получен лид #{leads_found + 1}: {data}")
+    print(f"Received lead #{leads_found + 1}: {data}")
     
     leads_found += 1
     
@@ -42,5 +42,5 @@ def health():
 
 if __name__ == '__main__':
     port = 5432
-    print(f"🚀 Server starting on port {port}")
+    print(f"Server starting on port {port}")
     app.run(host='0.0.0.0', port=port, debug=False)
