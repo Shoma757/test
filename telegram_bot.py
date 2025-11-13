@@ -7,9 +7,9 @@ import pandas as pd
 from telethon import TelegramClient
 
 # ТВОИ ДАННЫЕ TELEGRAM
-API_ID = 21725084
-API_HASH = '08f630cd0e979c07b93527ea554fe7bc'
-PHONE = '+79160002004'
+API_ID = 14535587
+API_HASH = '007b2bc4ed88c84167257c4a57dd3e75'
+PHONE = '+77762292659'
 
 class TelegramMonitor:
     def __init__(self):
