@@ -1,2 +1,2 @@
 [deploy]
-startCommand = "python start_both.py"
+startCommand = "python telegram_bot.py"
