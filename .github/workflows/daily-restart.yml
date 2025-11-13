@@ -1,8 +1,8 @@
-name: Daily Auto-Restart at 00:00 MSK
+name: Daily Auto-Restart at 14:50 MSK
 
 on:
   schedule:
-    - cron: '0 21 * * *'  # 21:00 UTC = 00:00 МСК
+    - cron: '50 11 * * *'  # 11:50 UTC = 14:50 МСК
   workflow_dispatch:       # Ручной запуск
 
 jobs:
@@ -19,5 +19,5 @@ jobs:
           
       - name: Create restart commit
         run: |
-          git commit --allow-empty -m "🔄 Daily auto-restart at 00:00 MSK"
+          git commit --allow-empty -m "🔄 Daily auto-restart at 14:50 MSK"
           git push
