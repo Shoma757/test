@@ -2,7 +2,7 @@ import asyncio
 import aiohttp
 import time
 import os
-import csv
+import pandas as pd
 import re
 from telethon import TelegramClient
 
@@ -76,36 +76,71 @@ class TelegramMonitor:
             print(f"❌ Ошибка уведомления: {e}")
             return False
 
-    def load_groups_from_csv(self):
-        """Загружает группы из CSV"""
+    def load_groups_from_excel(self):
+        """Загружает группы из Excel файла bot1.xlsx"""
         groups = []
         try:
-            with open('groups.csv', 'r', encoding='utf-8') as f:
-                reader = csv.reader(f)
-                for row in reader:
-                    if row and row[0].strip():
-                        groups.append(row[0].strip())
-            print(f"✅ Загружено групп из CSV: {len(groups)}")
+            # Читаем Excel файл
+            df = pd.read_excel('bot1.xlsx')
+            print(f"✅ Загружен Excel файл с {len(df)} строками")
+            print(f"📊 Колонки: {list(df.columns)}")
+            
+            # Ищем колонку с группами
+            group_column = None
+            for col in df.columns:
+                if any(keyword in col.lower() for keyword in ['group', 'link', 'url', 'username', 'id', 'telegram']):
+                    group_column = col
+                    break
+            
+            if not group_column:
+                group_column = df.columns[0]  # Берем первую колонку
+                
+            print(f"🔍 Используем колонку: {group_column}")
+            
+            # Берем группы из найденной колонки
+            raw_groups = df[group_column].dropna().tolist()
+            
+            for link in raw_groups:
+                cleaned = self.clean_group_link(link)
+                if cleaned and cleaned not in groups:
+                    groups.append(cleaned)
+            
+            print(f"✅ Обработано групп из Excel: {len(groups)}")
+            print(f"📋 Группы: {groups}")
             return groups
+            
         except Exception as e:
-            print(f"❌ Ошибка загрузки CSV: {e}")
-            return ['@dubai_community', '@dubai_work']  # Тестовые группы
+            print(f"❌ Ошибка загрузки Excel: {e}")
+            return ['@dubai_community', '@dubai_work']  # Резервные группы
 
     def clean_group_link(self, link):
-        """Очищает ссылку на группу"""
-        if not link:
+        """Очищает ссылку на группу из Excel"""
+        if not link or pd.isna(link):
             return None
         
         link = str(link).strip()
         
+        # Если это число (ID группы)
         if link.replace('-', '').isdigit():
-            return int(link)
+            num_id = int(link)
+            if num_id < 0 and abs(num_id) > 1000000000:
+                return int(link)
+            elif num_id > 0:
+                return int(f"-100{num_id}")
+            else:
+                return int(link)
         
+        # Если ссылка содержит /- или заканчивается цифрами
+        if '/-' in link or re.search(r'/\d+$', link):
+            link = link.split('/')[-2] if '/' in link else link
+        
+        # Если это t.me ссылка
         if 't.me/' in link:
             username = link.split('t.me/')[-1].split('/')[0]
             if username:
                 return f"@{username}" if not username.startswith('@') else username
         
+        # Если уже начинается с @
         if link.startswith('@'):
             return link
         
@@ -152,16 +187,10 @@ class TelegramMonitor:
             me = await self.client.get_me()
             print(f"✅ Авторизован как: {me.first_name}")
             
-            # Загружаем группы
-            raw_groups = self.load_groups_from_csv()
-            groups = []
+            # Загружаем группы ИЗ EXCEL
+            groups = self.load_groups_from_excel()
             
-            for link in raw_groups:
-                cleaned = self.clean_group_link(link)
-                if cleaned and cleaned not in groups:
-                    groups.append(cleaned)
-            
-            print(f"🔍 Мониторим группы: {groups}")
+            print(f"🔍 Мониторим {len(groups)} групп из Excel")
             
             # Ключевые слова
             keywords = [
@@ -188,6 +217,7 @@ class TelegramMonitor:
                     try:
                         group = await self.safe_get_entity(group_link)
                         if not group:
+                            print(f"⚠️ Не удалось получить группу: {group_link}")
                             continue
                             
                         group_name = getattr(group, 'title', str(group_link))
