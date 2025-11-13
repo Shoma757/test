@@ -21,7 +21,7 @@ jobs:
           
       - name: Create restart commit
         run: |
-          git commit --allow-empty -m "🔄 Daily auto-restart at 14:53 MSK"
-          git push
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Добавляем все файлы (даже если нет изменений)
+          git add -A
+          git commit -m "🔄 Daily auto-restart at 14:53 MSK" --allow-empty
+          git push origin main
