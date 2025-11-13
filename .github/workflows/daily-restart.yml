@@ -2,7 +2,7 @@ name: Daily Auto-Restart at 19:55 MSK
 
 on:
   schedule:
-    - cron: '55 16 * * *'  # 16:55 UTC = 19:55 МСК
+    - cron: '54 16 * * *'  # 16:55 UTC = 19:55 МСК
   workflow_dispatch:       # Ручной запуск
 
 jobs:
