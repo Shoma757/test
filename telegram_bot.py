@@ -25,7 +25,7 @@ class TelegramMonitor:
     async def send_to_webhook(self, lead_data):
         """Отправляет лид в Flask webhook"""
         try:
-            webhook_url = f"https://primary-production-9c67.up.railway.app/webhook/Parser"
+            webhook_url = "https://primary-production-9c67.up.railway.app/webhook/Parser"
             print(f"Отправляю лид в webhook...")
             
             async with aiohttp.ClientSession() as session:
