@@ -16,8 +16,8 @@ PHONE = '+77762292659'
 TIME_SETTINGS = {
     'minutes_back': 60,           # Парсить сообщения за последние N минут
     'groups_per_cycle': 10,       # Количество групп за один цикл
-    'delay_between_groups': 5,   # Пауза между группами (секунды)
-    'break_after_cycle': 1200,     # Перерыв после цикла (секунды) - 10 минут
+    'delay_between_groups': 5,    # Пауза между группами (секунды)
+    'break_after_cycle': 1200,    # Перерыв после цикла (секунды) - 20 минут
 }
 
 class TelegramMonitor:
@@ -126,12 +126,20 @@ class TelegramMonitor:
         return link
 
     async def safe_get_entity(self, identifier):
-        """Безопасное получение группы"""
-        try:
-            return await self.client.get_entity(identifier)
-        except Exception as e:
-            print(f"Не удалось получить группу {identifier}: {e}")
-            return None
+        """Безопасное получение группы с повторными попытками"""
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                print(f"Попытка подключения к группе {identifier} ({attempt + 1}/{max_retries})")
+                entity = await self.client.get_entity(identifier)
+                print(f"Успешно подключились к группе: {getattr(entity, 'title', identifier)}")
+                return entity
+            except Exception as e:
+                print(f"Ошибка получения группы {identifier} (попытка {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+                else:
+                    return None
 
     def get_message_url(self, group, message_id, group_link):
         """Формирует ссылку на сообщение"""
@@ -171,6 +179,33 @@ class TelegramMonitor:
             print(f"Ошибка получения информации о пользователе: {e}")
         
         return {"username": "нет", "user_id": None, "full_name": "Неизвестно"}
+
+    async def get_recent_messages(self, group, minutes_back=60):
+        """Получает сообщения за последние N минут с улучшенной логикой"""
+        try:
+            time_threshold = datetime.now() - timedelta(minutes=minutes_back)
+            messages = []
+            
+            # Пробуем несколько способов получения сообщений
+            try:
+                # Способ 1: iter_messages с фильтрацией по времени
+                async for message in self.client.iter_messages(group, limit=100):
+                    if message.date and message.date.replace(tzinfo=None) >= time_threshold:
+                        messages.append(message)
+                    else:
+                        break  # Сообщения идут от новых к старым
+                        
+            except Exception as e:
+                print(f"Ошибка iter_messages, пробуем get_messages: {e}")
+                # Способ 2: get_messages с последующим фильтром
+                messages = await self.client.get_messages(group, limit=50)
+                messages = [msg for msg in messages if msg.date and msg.date.replace(tzinfo=None) >= time_threshold]
+            
+            return messages
+            
+        except Exception as e:
+            print(f"Ошибка получения сообщений: {e}")
+            return []
 
     async def start_real_monitoring(self):
         """НАСТОЯЩИЙ мониторинг Telegram групп"""
@@ -246,102 +281,99 @@ class TelegramMonitor:
             print("Начинаем настоящий мониторинг...")
             
             self.is_running = True
+            cycle_count = 0
             
             # БЕСКОНЕЧНЫЙ ЦИКЛ МОНИТОРИНГА
             while self.is_running:
-                cycle_count = 0
+                cycle_count += 1
+                print(f"ЦИКЛ {cycle_count} - {time.strftime('%H:%M:%S')} - Лидов: {self.leads_found}")
                 
-                # Цикл по группам (повторяется бесконечно)
-                while self.is_running:
-                    cycle_count += 1
-                    print(f"ЦИКЛ {cycle_count} - {time.strftime('%H:%M:%S')} - Лидов: {self.leads_found}")
-                    
-                    # Берем только N групп за цикл
-                    groups_to_process = all_groups[:TIME_SETTINGS['groups_per_cycle']]
-                    print(f"Обрабатываем {len(groups_to_process)} групп в этом цикле")
-                    
-                    # Обрабатываем группы с паузами
-                    for i, group_link in enumerate(groups_to_process):
-                        try:
-                            group = await self.safe_get_entity(group_link)
-                            if not group:
-                                print(f"Не удалось получить группу: {group_link}")
-                                continue
+                # Берем только N групп за цикл
+                groups_to_process = all_groups[:TIME_SETTINGS['groups_per_cycle']]
+                print(f"Обрабатываем {len(groups_to_process)} групп в этом цикле")
+                
+                # Обрабатываем группы с паузами
+                for i, group_link in enumerate(groups_to_process):
+                    try:
+                        print(f"=== ОБРАБОТКА ГРУППЫ {i+1}/{len(groups_to_process)} ===")
+                        print(f"Переходим по ссылке: {group_link}")
+                        
+                        group = await self.safe_get_entity(group_link)
+                        if not group:
+                            print(f"❌ Не удалось получить группу: {group_link}")
+                            continue
+                            
+                        group_name = getattr(group, 'title', str(group_link))
+                        print(f"✅ Успешно подключились к группе: {group_name}")
+                        
+                        # Получаем сообщения за последние N минут
+                        messages = await self.get_recent_messages(group, TIME_SETTINGS['minutes_back'])
+                        print(f"📨 Найдено сообщений за последние {TIME_SETTINGS['minutes_back']} минут: {len(messages)}")
+                        
+                        new_leads_in_group = 0
+                        for msg in messages:
+                            if msg.text:
+                                # Уникальный ID сообщения (группа + ID сообщения)
+                                message_id = f"{getattr(group, 'id', 'unknown')}_{msg.id}"
                                 
-                            group_name = getattr(group, 'title', str(group_link))
-                            print(f"Проверяем группу ({i+1}/{len(groups_to_process)}): {group_name}")
-                            
-                            # Рассчитываем время для фильтрации сообщений
-                            time_threshold = datetime.now() - timedelta(minutes=TIME_SETTINGS['minutes_back'])
-                            
-                            # Получаем сообщения за последние N минут
-                            messages = []
-                            async for message in self.client.iter_messages(
-                                group, 
-                                offset_date=time_threshold,
-                                reverse=True
-                            ):
-                                messages.append(message)
-                            
-                            print(f"Найдено сообщений за последние {TIME_SETTINGS['minutes_back']} минут: {len(messages)}")
-                            
-                            for msg in messages:
-                                if msg.text:
-                                    # Уникальный ID сообщения (группа + ID сообщения)
-                                    message_id = f"{getattr(group, 'id', 'unknown')}_{msg.id}"
+                                if message_id not in self.processed_messages:
+                                    text = msg.text.lower()
+                                    found_keywords = [kw for kw in keywords if kw in text]
                                     
-                                    if message_id not in self.processed_messages:
-                                        text = msg.text.lower()
-                                        found_keywords = [kw for kw in keywords if kw in text]
+                                    if found_keywords:
+                                        print(f"🎯 НАЙДЕНО В '{group_name}': {found_keywords[0]}")
                                         
-                                        if found_keywords:
-                                            print(f"НАЙДЕНО В '{group_name}': {found_keywords[0]}")
-                                            
-                                            user_info = self.get_user_info(msg)
-                                            message_time = msg.date.strftime('%Y-%m-%d %H:%M:%S') if msg.date else "Неизвестно"
-                                            message_url = self.get_message_url(group, msg.id, group_link)
-                                            
-                                            lead_data = {
-                                                "source": "telegram",
-                                                "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
-                                                "text": msg.text,
-                                                "keywords": found_keywords,
-                                                "group_name": group_name,
-                                                "user_name": user_info['full_name'],
-                                                "username": user_info['username'],
-                                                "user_id": user_info['user_id'],
-                                                "message_time": message_time,
-                                                "message_url": message_url
-                                            }
-                                            
-                                            # Отправляем лид в webhook
-                                            webhook_success = await self.send_to_webhook(lead_data)
-                                            
-                                            if webhook_success:
-                                                print(f"Лид #{self.leads_found} успешно отправлен")
-                                            
-                                            # Добавляем в обработанные
-                                            self.processed_messages.add(message_id)
-                                            await asyncio.sleep(1)
+                                        user_info = self.get_user_info(msg)
+                                        message_time = msg.date.strftime('%Y-%m-%d %H:%M:%S') if msg.date else "Неизвестно"
+                                        message_url = self.get_message_url(group, msg.id, group_link)
+                                        
+                                        lead_data = {
+                                            "source": "telegram",
+                                            "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
+                                            "text": msg.text,
+                                            "keywords": found_keywords,
+                                            "group_name": group_name,
+                                            "user_name": user_info['full_name'],
+                                            "username": user_info['username'],
+                                            "user_id": user_info['user_id'],
+                                            "message_time": message_time,
+                                            "message_url": message_url
+                                        }
+                                        
+                                        # Отправляем лид в webhook
+                                        webhook_success = await self.send_to_webhook(lead_data)
+                                        
+                                        if webhook_success:
+                                            print(f"✅ Лид #{self.leads_found} успешно отправлен")
+                                            new_leads_in_group += 1
+                                        
+                                        # Добавляем в обработанные
+                                        self.processed_messages.add(message_id)
+                                        await asyncio.sleep(1)
+                        
+                        print(f"📊 В группе '{group_name}' найдено лидов: {new_leads_in_group}")
                             
-                            # Пауза между группами
-                            if i < len(groups_to_process) - 1:
-                                print(f"Пауза {TIME_SETTINGS['delay_between_groups']} секунд...")
-                                await asyncio.sleep(TIME_SETTINGS['delay_between_groups'])
+                        # Пауза между группами
+                        if i < len(groups_to_process) - 1:
+                            print(f"⏸️ Пауза {TIME_SETTINGS['delay_between_groups']} секунд...")
+                            await asyncio.sleep(TIME_SETTINGS['delay_between_groups'])
                             
-                        except Exception as e:
-                            print(f"Ошибка в группе {group_link}: {e}")
-                            await asyncio.sleep(5)
-                    
-                    # Большой перерыв после цикла
-                    print(f"Большой перерыв {TIME_SETTINGS['break_after_cycle']} секунд до следующего цикла...")
-                    break_count = 0
-                    while break_count < TIME_SETTINGS['break_after_cycle'] and self.is_running:
-                        await asyncio.sleep(1)
-                        break_count += 1
+                    except Exception as e:
+                        print(f"❌ Ошибка в группе {group_link}: {e}")
+                        await asyncio.sleep(5)
+                
+                # Большой перерыв после цикла
+                print(f"🕒 Большой перерыв {TIME_SETTINGS['break_after_cycle']} секунд до следующего цикла...")
+                break_count = 0
+                while break_count < TIME_SETTINGS['break_after_cycle'] and self.is_running:
+                    if break_count % 60 == 0:  # Каждую минуту выводим оставшееся время
+                        remaining = TIME_SETTINGS['break_after_cycle'] - break_count
+                        print(f"⏳ До следующего цикла: {remaining // 60} минут {remaining % 60} секунд")
+                    await asyncio.sleep(1)
+                    break_count += 1
                         
         except Exception as e:
-            print(f"Ошибка мониторинга: {e}")
+            print(f"❌ Ошибка мониторинга: {e}")
             await asyncio.sleep(30)
             if self.is_running:
                 await self.start_real_monitoring()
