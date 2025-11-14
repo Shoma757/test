@@ -4,12 +4,21 @@ import time
 import os
 import re
 import pandas as pd
+from datetime import datetime, timedelta
 from telethon import TelegramClient
 
 # ТВОИ ДАННЫЕ TELEGRAM
 API_ID = 14535587
 API_HASH = '007b2bc4ed88c84167257c4a57dd3e75'
 PHONE = '+77762292659'
+
+# НАСТРОЙКИ ВРЕМЕНИ - МЕНЯЙ ЗДЕСЬ
+TIME_SETTINGS = {
+    'minutes_back': 10,           # Парсить сообщения за последние N минут
+    'groups_per_cycle': 10,       # Количество групп за один цикл
+    'delay_between_groups': 15,   # Пауза между группами (секунды)
+    'break_after_cycle': 600,     # Перерыв после цикла (секунды) - 10 минут
+}
 
 class TelegramMonitor:
     def __init__(self):
@@ -175,9 +184,10 @@ class TelegramMonitor:
             print(f"Авторизован как: {me.first_name}")
             
             # Загружаем группы ИЗ EXCEL
-            groups = self.load_groups_from_excel()
+            all_groups = self.load_groups_from_excel()
             
-            print(f"Мониторим {len(groups)} групп из Excel")
+            print(f"Всего групп в базе: {len(all_groups)}")
+            print(f"Настройки времени: {TIME_SETTINGS}")
             
             # Ключевые слова
             keywords = [
@@ -200,8 +210,12 @@ class TelegramMonitor:
                 cycle_count += 1
                 print(f"ЦИКЛ {cycle_count} - {time.strftime('%H:%M:%S')} - Лидов: {self.leads_found}")
                 
+                # Берем только N групп за цикл
+                groups_to_process = all_groups[:TIME_SETTINGS['groups_per_cycle']]
+                print(f"Обрабатываем {len(groups_to_process)} групп в этом цикле")
+                
                 # Обрабатываем группы с паузами
-                for i, group_link in enumerate(groups):
+                for i, group_link in enumerate(groups_to_process):
                     try:
                         group = await self.safe_get_entity(group_link)
                         if not group:
@@ -209,13 +223,25 @@ class TelegramMonitor:
                             continue
                             
                         group_name = getattr(group, 'title', str(group_link))
-                        print(f"Проверяем группу ({i+1}/{len(groups)}): {group_name}")
+                        print(f"Проверяем группу ({i+1}/{len(groups_to_process)}): {group_name}")
                         
-                        # Получаем последние 20 сообщений
-                        messages = await self.client.get_messages(group, limit=20)
+                        # Рассчитываем время для фильтрации сообщений
+                        time_threshold = datetime.now() - timedelta(minutes=TIME_SETTINGS['minutes_back'])
+                        
+                        # Получаем сообщения за последние N минут
+                        messages = []
+                        async for message in self.client.iter_messages(
+                            group, 
+                            offset_date=time_threshold,
+                            reverse=True  # Сначала старые сообщения
+                        ):
+                            messages.append(message)
+                        
+                        print(f"Найдено сообщений за последние {TIME_SETTINGS['minutes_back']} минут: {len(messages)}")
                         
                         for msg in messages:
                             if msg.text:
+                                # Уникальный ID сообщения (группа + ID сообщения)
                                 message_id = f"{getattr(group, 'id', 'unknown')}_{msg.id}"
                                 
                                 if message_id not in self.processed_messages:
@@ -248,28 +274,22 @@ class TelegramMonitor:
                                         if webhook_success:
                                             print(f"Лид #{self.leads_found} успешно отправлен")
                                         
+                                        # Добавляем в обработанные
                                         self.processed_messages.add(message_id)
                                         await asyncio.sleep(1)
                         
-                        # Пауза 5 секунд между группами
-                        if i < len(groups) - 1:
-                            print("Пауза 5 секунд...")
-                            await asyncio.sleep(5)
-                        
-                        # Перерыв 5 минут после каждых 5 групп
-                        if (i + 1) % 5 == 0 and i < len(groups) - 1:
-                            print("Перерыв 5 минут после 5 групп...")
-                            for j in range(300):
-                                if not self.is_running:
-                                    break
-                                await asyncio.sleep(1)
+                        # Пауза между группами
+                        if i < len(groups_to_process) - 1:
+                            print(f"Пауза {TIME_SETTINGS['delay_between_groups']} секунд...")
+                            await asyncio.sleep(TIME_SETTINGS['delay_between_groups'])
                         
                     except Exception as e:
                         print(f"Ошибка в группе {group_link}: {e}")
                         await asyncio.sleep(5)
                 
-                print("Большой перерыв 5 минут до следующего цикла...")
-                for i in range(300):
+                # Большой перерыв после цикла
+                print(f"Большой перерыв {TIME_SETTINGS['break_after_cycle']} секунд до следующего цикла...")
+                for i in range(TIME_SETTINGS['break_after_cycle']):
                     if not self.is_running:
                         break
                     await asyncio.sleep(1)
