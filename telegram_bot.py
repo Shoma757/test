@@ -14,9 +14,9 @@ PHONE = '+77762292659'
 
 # НАСТРОЙКИ ВРЕМЕНИ - МЕНЯЙ ЗДЕСЬ
 TIME_SETTINGS = {
-    'minutes_back': 15,           # Парсить сообщения за последние N минут
-    'groups_per_cycle': 15,       # Количество групп за один цикл
-    'delay_between_groups': 20,   # Пауза между группами (секунды)
+    'minutes_back': 10,           # Парсить сообщения за последние N минут
+    'groups_per_cycle': 10,       # Количество групп за один цикл
+    'delay_between_groups': 15,   # Пауза между группами (секунды)
     'break_after_cycle': 600,     # Перерыв после цикла (секунды) - 10 минут
 }
 
@@ -189,15 +189,57 @@ class TelegramMonitor:
             print(f"Всего групп в базе: {len(all_groups)}")
             print(f"Настройки времени: {TIME_SETTINGS}")
             
-            # Ключевые слова
+            # ОБЪЕДИНЕННЫЕ КЛЮЧЕВЫЕ СЛОВА
             keywords = [
+                # Исходные ключевые слова
                 "допуск", "пропуск", "пасс", "разрешение", "ремонт", "работы",
                 "рабочий", "рабочие", "строитель", "строители", "строительный", "строительные",
-                "permit", "work", "access", "pass", "noc", "minor", "major", "управляющая", "компания", "менеджмент", "билдинг",
+                "permit", "work", "access", "pass", "noc", "minor", "major", 
+                "управляющая", "компания", "менеджмент", "билдинг",
                 "community", "management", "building", "дубай", "dubai", "оаэ", "uae",
                 "квартира", "вилла", "apartment", "villa", "таунхаус", "пентхаус", "офис",
                 "townhouse", "penthouse", "office", "помощь", "получение", "оформление",
-                "сопровождение", "документы", "help", "permission", "approval", "construction"
+                "сопровождение", "документы", "help", "permission", "approval", "construction",
+                
+                # Новые ключевые слова - Блок 1: Дизайнеры, архитекторы, согласования
+                "интерьерный дизайнер", "interior designer", "дизайнер интерьера",
+                "перепланировка квартиры", "перепланировка виллы", "replanning", "remodeling",
+                "архитектор", "architect", "архитектурный проект",
+                "проект нового строительства", "new construction", "строительство виллы", "villa construction",
+                "строительство дома", "house construction", "строительство завода", "factory construction",
+                "строительство склада", "warehouse construction",
+                "расчеты и согласования", "approvals", "согласование проекта",
+                "Dubai Municipality", "DM", "Dubai Development Authority", "DDA", "Trakhees",
+                "Dubai Civil Defense", "DCD", "District Cooling", "EMCOOL", "EMPOWER",
+                "Road And Transport Authority", "RTA", "Aviation Authority",
+                "Dubai Electricity and Water Authority", "DEWA",
+                "государственные инстанции", "government approvals",
+                
+                # Блок 1: Ремонт и строительство
+                "как сделать ремонт", "how to renovate", "запустить рабочих",
+                "рабочие в квартиру", "рабочие на виллу", "workers access",
+                "построить здание", "build a building", "строительство на участке",
+                "участок земли", "land plot", "процесс строительства", "construction process",
+                "сложности строительства", "construction challenges",
+                "технадзор", "author supervision", "engineering supervision",
+                "авторский надзор", "надзор за стройкой", "construction supervision",
+                
+                # Блок 2: Строительные компании и специалисты
+                "строительная компания", "construction company", "ремонт в Дубае",
+                "косметический ремонт", "cosmetic renovation", "капитальный ремонт", "major renovation",
+                "сервисное обслуживание кондиционеров", "AC maintenance", "AC service",
+                "сантехник", "plumber", "сантехнические работы", "plumbing works",
+                "электрик", "electrician", "электромонтажные работы", "electrical works",
+                "плиточник", "tiler", "каменьщик", "mason", "укладка плитки", "tile installation",
+                "мебельщик", "furniture maker", "столяр", "carpenter", "плотник", "woodworker",
+                "комплектатор", "procurement", "комплектация объектов", "project procurement",
+                
+                # Общие и рекомендации
+                "порекомендуйте", "рекомендуйте", "recommend", "looking for",
+                "проверенный", "checked", "reliable", "надежный",
+                "ищу", "ищут", "looking for", "need",
+                "отзыв", "review", "recommendation",
+                "ОАЭ", "Дубай", "Dubai", "Абу Даби", "Abu Dhabi", "UAE"
             ]
             
             print(f"Ключевых слов: {len(keywords)}")
