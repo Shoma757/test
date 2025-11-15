@@ -18,6 +18,7 @@ TIME_SETTINGS = {
     'groups_per_cycle': 10,       # Количество групп за один цикл - УВЕЛИЧЬТЕ ЗДЕСЬ!
     'delay_between_groups': 20,    # Пауза между группами (секунды)
     'break_after_cycle': 1200,    # Перерыв после цикла (секунды) - 20 минут
+    'delay_between_leads': 60,     # Пауза между отправкой лидов (секунды) - 1 минута
 }
 
 class TelegramMonitor:
@@ -31,6 +32,7 @@ class TelegramMonitor:
         self.processed_messages = set()
         self.all_groups = []  # Храним все группы
         self.current_cycle_start = 0  # Начальный индекс для текущего цикла
+        self.last_lead_time = 0  # Время отправки последнего лида
 
     async def send_to_webhook(self, lead_data):
         """Отправляет лид в Flask webhook"""
@@ -50,6 +52,7 @@ class TelegramMonitor:
                         response_data = await response.json()
                         print(f"Webhook ответил: {response_data['message']}")
                         self.leads_found += 1
+                        self.last_lead_time = time.time()  # Запоминаем время отправки
                         return True
                     else:
                         print(f"Webhook ошибка: {response.status}")
@@ -58,6 +61,17 @@ class TelegramMonitor:
         except Exception as e:
             print(f"Ошибка подключения к webhook: {e}")
             return False
+
+    async def wait_if_needed_between_leads(self, lead_count_in_group):
+        """Делает паузу между лидами, если их больше одного"""
+        if lead_count_in_group > 1:
+            # Если это не первый лид в группе, делаем паузу
+            delay_needed = TIME_SETTINGS['delay_between_leads']
+            print(f"⏳ Найдено несколько лидов. Пауза {delay_needed} секунд перед следующим лидом...")
+            await asyncio.sleep(delay_needed)
+        else:
+            # Для первого лида в группе - короткая пауза
+            await asyncio.sleep(1)
 
     def load_groups_from_excel(self):
         """Загружает группы из Excel файла bot1.xlsx"""
@@ -368,7 +382,7 @@ class TelegramMonitor:
                         print(f"📨 Найдено сообщений за последние {TIME_SETTINGS['minutes_back']} минут: {len(messages)}")
                         
                         new_leads_in_group = 0
-                        for msg in messages:
+                        for msg_index, msg in enumerate(messages):
                             if msg.text:
                                 # Уникальный ID сообщения (группа + ID сообщения)
                                 message_id = f"{getattr(group, 'id', 'unknown')}_{msg.id}"
@@ -397,16 +411,22 @@ class TelegramMonitor:
                                             "message_url": message_url
                                         }
                                         
+                                        # Делаем паузу между лидами, если их больше одного
+                                        await self.wait_if_needed_between_leads(new_leads_in_group)
+                                        
                                         # Отправляем лид в webhook
                                         webhook_success = await self.send_to_webhook(lead_data)
                                         
                                         if webhook_success:
                                             print(f"✅ Лид #{self.leads_found} успешно отправлен")
                                             new_leads_in_group += 1
+                                        else:
+                                            # Если отправка не удалась, делаем дополнительную паузу
+                                            print("⚠️ Ошибка отправки лида, делаем паузу...")
+                                            await asyncio.sleep(10)
                                         
                                         # Добавляем в обработанные
                                         self.processed_messages.add(message_id)
-                                        await asyncio.sleep(1)
                         
                         print(f"📊 В группе '{group_name}' найдено лидов: {new_leads_in_group}")
                             
