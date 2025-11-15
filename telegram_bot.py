@@ -6,6 +6,7 @@ import re
 import pandas as pd
 from datetime import datetime, timedelta
 from telethon import TelegramClient
+from telethon.tl.types import Channel, Chat
 
 # ТВОИ ДАННЫЕ TELEGRAM
 API_ID = 14535587
@@ -86,6 +87,7 @@ class TelegramMonitor:
                     groups.append(cleaned)
             
             print(f"Обработано групп из Excel: {len(groups)}")
+            print(f"Примеры групп: {groups[:3]}")  # Для отладки
             return groups
             
         except Exception as e:
@@ -99,31 +101,49 @@ class TelegramMonitor:
         
         link = str(link).strip()
         
+        # Обработка веб-ссылок Telegram
+        if 'web.telegram.org' in link:
+            if '/#-' in link:
+                # Извлекаем числовой ID
+                group_id = link.split('/#')[-1]
+                if group_id.replace('-', '').isdigit():
+                    return self.normalize_channel_id(int(group_id))
+            elif '/#@' in link:
+                # Извлекаем username
+                username = link.split('/#@')[-1]
+                return f"@{username}"
+            return None
+        
         # Если это число (ID группы)
         if link.replace('-', '').isdigit():
             num_id = int(link)
-            if num_id < 0 and abs(num_id) > 1000000000:
-                return int(link)
-            elif num_id > 0:
-                return int(f"-100{num_id}")
-            else:
-                return int(link)
+            return self.normalize_channel_id(num_id)
         
-        # Если ссылка содержит /- или заканчивается цифрами
-        if '/-' in link or re.search(r'/\d+$', link):
-            link = link.split('/')[-2] if '/' in link else link
+        # Если это t.me ссылка с joinchat
+        if 't.me/joinchat/' in link:
+            return link  # Оставляем как есть
         
-        # Если это t.me ссылка
+        # Если это обычная t.me ссылка
         if 't.me/' in link:
             username = link.split('t.me/')[-1].split('/')[0]
-            if username:
+            if username and not username.startswith('joinchat/'):
                 return f"@{username}" if not username.startswith('@') else username
         
         # Если уже начинается с @
         if link.startswith('@'):
             return link
         
+        # Если это просто username без @
+        if re.match(r'^[a-zA-Z0-9_]{5,32}$', link):
+            return f"@{link}"
+        
         return link
+
+    def normalize_channel_id(self, channel_id):
+        """Нормализует ID канала/супергруппы"""
+        # Для Telethon всегда используем числовые ID как есть
+        # Telethon сам определит тип сущности
+        return channel_id
 
     async def safe_get_entity(self, identifier):
         """Безопасное получение группы с повторными попытками"""
@@ -131,15 +151,30 @@ class TelegramMonitor:
         for attempt in range(max_retries):
             try:
                 print(f"Попытка подключения к группе {identifier} ({attempt + 1}/{max_retries})")
-                entity = await self.client.get_entity(identifier)
-                print(f"Успешно подключились к группе: {getattr(entity, 'title', identifier)}")
-                return entity
-            except Exception as e:
-                print(f"Ошибка получения группы {identifier} (попытка {attempt + 1}): {e}")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(2)
+                
+                # Пробуем разные методы в зависимости от типа идентификатора
+                if isinstance(identifier, int):
+                    # Для числовых ID используем get_entity
+                    entity = await self.client.get_entity(identifier)
                 else:
+                    # Для username используем get_entity
+                    entity = await self.client.get_entity(identifier)
+                
+                print(f"✅ Успешно подключились к группе: {getattr(entity, 'title', identifier)}")
+                return entity
+            except ValueError as e:
+                if "Cannot find any entity" in str(e):
+                    print(f"❌ Не найдена группа: {identifier}")
                     return None
+                else:
+                    print(f"❌ Ошибка получения группы {identifier} (попытка {attempt + 1}): {e}")
+            except Exception as e:
+                print(f"❌ Ошибка получения группы {identifier} (попытка {attempt + 1}): {e}")
+                
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2)
+        
+        return None
 
     def get_message_url(self, group, message_id, group_link):
         """Формирует ссылку на сообщение"""
@@ -181,25 +216,16 @@ class TelegramMonitor:
         return {"username": "нет", "user_id": None, "full_name": "Неизвестно"}
 
     async def get_recent_messages(self, group, minutes_back=60):
-        """Получает сообщения за последние N минут с улучшенной логикой"""
+        """Получает сообщения за последние N минут"""
         try:
             time_threshold = datetime.now() - timedelta(minutes=minutes_back)
             messages = []
             
-            # Пробуем несколько способов получения сообщений
-            try:
-                # Способ 1: iter_messages с фильтрацией по времени
-                async for message in self.client.iter_messages(group, limit=100):
-                    if message.date and message.date.replace(tzinfo=None) >= time_threshold:
-                        messages.append(message)
-                    else:
-                        break  # Сообщения идут от новых к старым
-                        
-            except Exception as e:
-                print(f"Ошибка iter_messages, пробуем get_messages: {e}")
-                # Способ 2: get_messages с последующим фильтром
-                messages = await self.client.get_messages(group, limit=50)
-                messages = [msg for msg in messages if msg.date and msg.date.replace(tzinfo=None) >= time_threshold]
+            async for message in self.client.iter_messages(group, limit=100):
+                if message.date and message.date.replace(tzinfo=None) >= time_threshold:
+                    messages.append(message)
+                else:
+                    break  # Сообщения идут от новых к старым
             
             return messages
             
@@ -216,17 +242,17 @@ class TelegramMonitor:
             await self.client.start()
             
             me = await self.client.get_me()
-            print(f"Авторизован как: {me.first_name}")
+            print(f"✅ Авторизован как: {me.first_name}")
             
             # Загружаем группы ИЗ EXCEL
             all_groups = self.load_groups_from_excel()
             
-            print(f"Всего групп в базе: {len(all_groups)}")
-            print(f"Настройки времени: {TIME_SETTINGS}")
+            print(f"📊 Всего групп в базе: {len(all_groups)}")
+            print(f"⚙️ Настройки времени: {TIME_SETTINGS}")
             
-            # ОБЪЕДИНЕННЫЕ КЛЮЧЕВЫЕ СЛОВА
+            # КЛЮЧЕВЫЕ СЛОВА
             keywords = [
-                # Исходные ключевые слова
+                # Основные ключевые слова
                 "допуск", "пропуск", "пасс", "разрешение", "ремонт", "работы",
                 "рабочий", "рабочие", "строитель", "строители", "строительный", "строительные",
                 "permit", "work", "access", "pass", "noc", "minor", "major", 
@@ -236,7 +262,7 @@ class TelegramMonitor:
                 "townhouse", "penthouse", "office", "помощь", "получение", "оформление",
                 "сопровождение", "документы", "help", "permission", "approval", "construction",
                 
-                # Новые ключевые слова - Блок 1: Дизайнеры, архитекторы, согласования
+                # Дизайнеры, архитекторы, согласования
                 "интерьерный дизайнер", "interior designer", "дизайнер интерьера",
                 "перепланировка квартиры", "перепланировка виллы", "replanning", "remodeling",
                 "архитектор", "architect", "архитектурный проект",
@@ -250,7 +276,7 @@ class TelegramMonitor:
                 "Dubai Electricity and Water Authority", "DEWA",
                 "государственные инстанции", "government approvals",
                 
-                # Блок 1: Ремонт и строительство
+                # Ремонт и строительство
                 "как сделать ремонт", "how to renovate", "запустить рабочих",
                 "рабочие в квартиру", "рабочие на виллу", "workers access",
                 "построить здание", "build a building", "строительство на участке",
@@ -259,7 +285,7 @@ class TelegramMonitor:
                 "технадзор", "author supervision", "engineering supervision",
                 "авторский надзор", "надзор за стройкой", "construction supervision",
                 
-                # Блок 2: Строительные компании и специалисты
+                # Строительные компании и специалисты
                 "строительная компания", "construction company", "ремонт в Дубае",
                 "косметический ремонт", "cosmetic renovation", "капитальный ремонт", "major renovation",
                 "сервисное обслуживание кондиционеров", "AC maintenance", "AC service",
@@ -277,8 +303,8 @@ class TelegramMonitor:
                 "ОАЭ", "Дубай", "Dubai", "Абу Даби", "Abu Dhabi", "UAE"
             ]
             
-            print(f"Ключевых слов: {len(keywords)}")
-            print("Начинаем настоящий мониторинг...")
+            print(f"🔍 Ключевых слов: {len(keywords)}")
+            print("🚀 Начинаем настоящий мониторинг...")
             
             self.is_running = True
             cycle_count = 0
@@ -286,17 +312,17 @@ class TelegramMonitor:
             # БЕСКОНЕЧНЫЙ ЦИКЛ МОНИТОРИНГА
             while self.is_running:
                 cycle_count += 1
-                print(f"ЦИКЛ {cycle_count} - {time.strftime('%H:%M:%S')} - Лидов: {self.leads_found}")
+                print(f"\n🔄 ЦИКЛ {cycle_count} - {time.strftime('%Y-%m-%d %H:%M:%S')} - Лидов: {self.leads_found}")
                 
                 # Берем только N групп за цикл
                 groups_to_process = all_groups[:TIME_SETTINGS['groups_per_cycle']]
-                print(f"Обрабатываем {len(groups_to_process)} групп в этом цикле")
+                print(f"📝 Обрабатываем {len(groups_to_process)} групп в этом цикле")
                 
                 # Обрабатываем группы с паузами
                 for i, group_link in enumerate(groups_to_process):
                     try:
-                        print(f"=== ОБРАБОТКА ГРУППЫ {i+1}/{len(groups_to_process)} ===")
-                        print(f"Переходим по ссылке: {group_link}")
+                        print(f"\n=== ОБРАБОТКА ГРУППЫ {i+1}/{len(groups_to_process)} ===")
+                        print(f"🔗 Переходим по ссылке: {group_link}")
                         
                         group = await self.safe_get_entity(group_link)
                         if not group:
@@ -318,10 +344,10 @@ class TelegramMonitor:
                                 
                                 if message_id not in self.processed_messages:
                                     text = msg.text.lower()
-                                    found_keywords = [kw for kw in keywords if kw in text]
+                                    found_keywords = [kw for kw in keywords if kw.lower() in text]
                                     
                                     if found_keywords:
-                                        print(f"🎯 НАЙДЕНО В '{group_name}': {found_keywords[0]}")
+                                        print(f"🎯 НАЙДЕНО В '{group_name}': {found_keywords[:3]}...")
                                         
                                         user_info = self.get_user_info(msg)
                                         message_time = msg.date.strftime('%Y-%m-%d %H:%M:%S') if msg.date else "Неизвестно"
@@ -363,7 +389,7 @@ class TelegramMonitor:
                         await asyncio.sleep(5)
                 
                 # Большой перерыв после цикла
-                print(f"🕒 Большой перерыв {TIME_SETTINGS['break_after_cycle']} секунд до следующего цикла...")
+                print(f"\n🕒 Большой перерыв {TIME_SETTINGS['break_after_cycle']} секунд до следующего цикла...")
                 break_count = 0
                 while break_count < TIME_SETTINGS['break_after_cycle'] and self.is_running:
                     if break_count % 60 == 0:  # Каждую минуту выводим оставшееся время
@@ -373,7 +399,7 @@ class TelegramMonitor:
                     break_count += 1
                         
         except Exception as e:
-            print(f"❌ Ошибка мониторинга: {e}")
+            print(f"❌ Критическая ошибка мониторинга: {e}")
             await asyncio.sleep(30)
             if self.is_running:
                 await self.start_real_monitoring()
