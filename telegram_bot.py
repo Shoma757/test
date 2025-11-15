@@ -6,7 +6,6 @@ import re
 import pandas as pd
 from datetime import datetime, timedelta
 from telethon import TelegramClient
-from telethon.tl.types import Channel, Chat
 
 # ТВОИ ДАННЫЕ TELEGRAM
 API_ID = 14535587
@@ -15,9 +14,9 @@ PHONE = '+77762292659'
 
 # НАСТРОЙКИ ВРЕМЕНИ - МЕНЯЙ ЗДЕСЬ
 TIME_SETTINGS = {
-    'minutes_back': 6,           # Парсить сообщения за последние N минут
-    'groups_per_cycle': 10,       # Количество групп за один цикл
-    'delay_between_groups': 3,    # Пауза между группами (секунды)
+    'minutes_back': 60,           # Парсить сообщения за последние N минут
+    'groups_per_cycle': 5,       # Количество групп за один цикл - УВЕЛИЧЬТЕ ЗДЕСЬ!
+    'delay_between_groups': 5,    # Пауза между группами (секунды)
     'break_after_cycle': 5,    # Перерыв после цикла (секунды) - 20 минут
 }
 
@@ -30,6 +29,8 @@ class TelegramMonitor:
         self.is_running = False
         self.leads_found = 0
         self.processed_messages = set()
+        self.all_groups = []  # Храним все группы
+        self.current_cycle_start = 0  # Начальный индекс для текущего цикла
 
     async def send_to_webhook(self, lead_data):
         """Отправляет лид в Flask webhook"""
@@ -145,6 +146,36 @@ class TelegramMonitor:
         # Telethon сам определит тип сущности
         return channel_id
 
+    def get_groups_for_current_cycle(self):
+        """Возвращает группы для текущего цикла с циклическим перебором"""
+        if not self.all_groups:
+            return []
+        
+        total_groups = len(self.all_groups)
+        groups_per_cycle = TIME_SETTINGS['groups_per_cycle']
+        
+        # Если групп меньше или равно groups_per_cycle, берем все
+        if total_groups <= groups_per_cycle:
+            return self.all_groups
+        
+        # Вычисляем диапазон групп для текущего цикла
+        end_index = self.current_cycle_start + groups_per_cycle
+        
+        if end_index <= total_groups:
+            # Берем последовательные группы
+            groups_batch = self.all_groups[self.current_cycle_start:end_index]
+        else:
+            # Достигли конца списка, берем оставшиеся + начинаем с начала
+            groups_batch = (self.all_groups[self.current_cycle_start:] + 
+                          self.all_groups[:end_index - total_groups])
+        
+        print(f"📋 Цикл групп: {self.current_cycle_start + 1}-{min(end_index, total_groups)} из {total_groups}")
+        
+        # Обновляем стартовый индекс для следующего цикла
+        self.current_cycle_start = (self.current_cycle_start + groups_per_cycle) % total_groups
+        
+        return groups_batch
+
     async def safe_get_entity(self, identifier):
         """Безопасное получение группы с повторными попытками"""
         max_retries = 3
@@ -244,10 +275,10 @@ class TelegramMonitor:
             me = await self.client.get_me()
             print(f"✅ Авторизован как: {me.first_name}")
             
-            # Загружаем группы ИЗ EXCEL
-            all_groups = self.load_groups_from_excel()
+            # Загружаем группы ИЗ EXCEL один раз при старте
+            self.all_groups = self.load_groups_from_excel()
             
-            print(f"📊 Всего групп в базе: {len(all_groups)}")
+            print(f"📊 Всего групп в базе: {len(self.all_groups)}")
             print(f"⚙️ Настройки времени: {TIME_SETTINGS}")
             
             # КЛЮЧЕВЫЕ СЛОВА
@@ -314,8 +345,8 @@ class TelegramMonitor:
                 cycle_count += 1
                 print(f"\n🔄 ЦИКЛ {cycle_count} - {time.strftime('%Y-%m-%d %H:%M:%S')} - Лидов: {self.leads_found}")
                 
-                # Берем только N групп за цикл
-                groups_to_process = all_groups[:TIME_SETTINGS['groups_per_cycle']]
+                # Получаем группы для текущего цикла (циклический перебор)
+                groups_to_process = self.get_groups_for_current_cycle()
                 print(f"📝 Обрабатываем {len(groups_to_process)} групп в этом цикле")
                 
                 # Обрабатываем группы с паузами
